@@ -1,7 +1,7 @@
 {
   "name": "magicsniffer",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "macOS 存储空间可视化分析工具 - 类似 SpaceSniffer 的磁盘空间统计器",
   "type": "module",
   "scripts": {
@@ -20,11 +20,13 @@
     "@tauri-apps/plugin-shell": "^2"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.0.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.2.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.9.0",
-    "vite": "^6.0.0",
-    "@tauri-apps/cli": "^2.0.0"
+    "vite": "^6.0.0"
   }
 }
