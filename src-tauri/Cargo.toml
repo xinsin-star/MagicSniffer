@@ -1,0 +1,58 @@
+[package]
+name = "magicsniffer"
+version = "0.1.0"
+description = "macOS 存储空间可视化分析工具 - 类似 SpaceSniffer 的磁盘空间统计器"
+authors = ["xinsin"]
+edition = "2021"
+
+[lib]
+name = "magicsniffer_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# 序列化 - 用于前后端数据传递
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Tauri 核心
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+
+# 异步运行时 - 用于并发扫描文件系统
+tokio = { version = "1", features = ["full"] }
+
+# 并行迭代 - 用于多线程文件系统扫描
+rayon = "1"
+
+# 时间与日期
+chrono = "0.4"
+
+# 文件系统监控
+notify = "8"
+
+# 系统信息
+sysinfo = "0.33"
+
+# 错误处理
+anyhow = "1"
+thiserror = "2"
+
+# 日志
+log = "0.4"
+env_logger = "0.11"
+
+# 正则表达式 - 用于文件搜索模式匹配
+regex = "1"
+
+# UUID - 用于生成唯一标识
+uuid = { version = "1", features = ["v4"] }
+walkdir = "2.5.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# macOS 特定的系统信息获取
+core-foundation = "0.10"

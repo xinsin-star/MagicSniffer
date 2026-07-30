@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bun(pm install)",
+      "Bun(pm run dev)",
+      "Bun(pm run build)",
+      "Bun(run tauri *)",
+      "Cargo(check)",
+      "Cargo(build)",
+      "Cargo(clippy)",
+      "Read(/Users/sinxin/Documents/project/xinsin/MagicSniffer/**)",
+      "Edit(/Users/sinxin/Documents/project/xinsin/MagicSniffer/**)",
+      "Write(/Users/sinxin/Documents/project/xinsin/MagicSniffer/**)",
+      "Glob(/Users/sinxin/Documents/project/xinsin/MagicSniffer/**)",
+      "Grep(/Users/sinxin/Documents/project/xinsin/MagicSniffer/**)",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}

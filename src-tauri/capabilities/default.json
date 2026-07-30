@@ -1,0 +1,15 @@
+{
+  "identifier": "default",
+  "description": "默认的权限配置 - MagicSniffer 需要的系统权限",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-ask",
+    "dialog:allow-confirm",
+    "shell:allow-open",
+    "core:window:default",
+    "core:window:allow-set-size"
+  ]
+}

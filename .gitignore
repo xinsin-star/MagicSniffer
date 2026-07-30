@@ -1,0 +1,59 @@
+# ===== Dependencies =====
+node_modules
+
+# ===== Build Output =====
+/dist
+/out
+*.tgz
+
+# ===== Rust / Tauri =====
+src-tauri/target
+# macOS app bundles from tauri build
+*.dmg
+*.app
+
+# ===== IDE / Editors =====
+# IntelliJ
+.idea/
+# Cursor
+.cursor/
+# VS Code (project-specific settings; keep .vscode/ for shared config)
+.vscode/settings.json
+# Vim
+*.swp
+*.swo
+*~
+# Emacs
+\#*\#
+.#*
+
+# ===== OS Files =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# ===== Environment =====
+.env
+.env.*.local
+.env.local
+
+# ===== Logs =====
+logs/
+*.log
+
+# ===== Coverage & Reports =====
+coverage/
+*.lcov
+*.tsbuildinfo
+
+# ===== Cache =====
+.eslintcache
+.cache/
+
+# ===== Claude Code (local overrides only) =====
+.claude/settings.local.json
