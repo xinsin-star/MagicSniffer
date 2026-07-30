@@ -17,6 +17,8 @@ use crate::models::{CachedScan, ScanCacheMeta, ScanRequest, ScanResult};
 const CACHE_VERSION: u32 = 2;
 const CACHE_DIR_NAME: &str = "scan-cache";
 const INDEX_FILE: &str = "index.json";
+/// 最多保留的缓存条目数，超出时淘汰最旧的
+const MAX_CACHE_ENTRIES: usize = 5;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct CacheIndex {
@@ -129,13 +131,38 @@ pub fn save_scan_ext(
         index.entries.push(meta);
     }
     index.entries.sort_by(|a, b| b.cached_at.cmp(&a.cached_at));
+
+    // 超出上限时淘汰最旧的缓存（排在最后面）
+    let evicted: Vec<ScanCacheMeta> = if index.entries.len() > MAX_CACHE_ENTRIES {
+        let tail = index.entries.split_off(MAX_CACHE_ENTRIES);
+        for meta in &tail {
+            let ep = entry_path(&dir, &meta.root_path);
+            if ep.exists() {
+                if let Err(e) = fs::remove_file(&ep) {
+                    log::warn!("淘汰缓存文件失败 {}: {e}", ep.display());
+                } else {
+                    log::info!("淘汰过期缓存: {} (cached_at={})", meta.root_path, meta.cached_at);
+                }
+            }
+            // 若被淘汰的是 latest，改指第一个保留项
+            if index.latest_root_path.as_deref() == Some(&meta.root_path) {
+                index.latest_root_path = index.entries.first().map(|e| e.root_path.clone());
+            }
+        }
+        tail
+    } else {
+        vec![]
+    };
+
     write_index(&dir, &index)?;
 
     log::info!(
-        "已缓存扫描结果: {} incomplete={} ({} bytes)",
+        "已缓存扫描结果: {} incomplete={} ({} bytes), 淘汰 {} 个旧缓存, 当前共 {} 条",
         result.root_path,
         incomplete,
-        file_path.metadata().map(|m| m.len()).unwrap_or(0)
+        file_path.metadata().map(|m| m.len()).unwrap_or(0),
+        evicted.len(),
+        index.entries.len(),
     );
     Ok(cached)
 }
