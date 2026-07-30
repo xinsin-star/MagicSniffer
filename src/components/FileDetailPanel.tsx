@@ -1,7 +1,4 @@
 //! 文件/目录详情面板
-//!
-//! 显示选中文件或目录的详细信息，包括大小、分类、安全风险和删除建议。
-//! 支持调用 Rust 后端获取详细的风险评估数据。
 
 import React, { useEffect, useState } from "react";
 import type { FileNode, RiskDetail } from "../types";
@@ -9,18 +6,13 @@ import { CATEGORY_INFO, RISK_LEVEL_INFO, formatSize, formatDate } from "../types
 import { assessDeleteRisk } from "../hooks/useTauriCommand";
 
 interface FileDetailPanelProps {
-  /** 选中的文件节点 */
   node: FileNode | null;
-  /** 导航到父目录的回调 */
-  onNavigateUp?: (path: string) => void;
 }
 
-/** 文件详情面板 */
 const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
   const [riskDetail, setRiskDetail] = useState<RiskDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  /** 当选中节点变化时，加载风险评估详情 */
   useEffect(() => {
     if (!node) {
       setRiskDetail(null);
@@ -28,22 +20,15 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
     }
 
     let cancelled = false;
-
     const loadRiskInfo = async () => {
       setIsLoading(true);
       try {
         const detail = await assessDeleteRisk(node.path);
-        if (!cancelled) {
-          setRiskDetail(detail);
-        }
+        if (!cancelled) setRiskDetail(detail);
       } catch {
-        if (!cancelled) {
-          setRiskDetail(null);
-        }
+        if (!cancelled) setRiskDetail(null);
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
@@ -55,13 +40,11 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
 
   if (!node) {
     return (
-      <div className="detail-panel">
-        <div className="empty-state" style={{ padding: 40 }}>
-          <div className="empty-state-icon">👆</div>
-          <div className="empty-state-text">
-            点击 Treemap 中的矩形块或搜索结果以查看详情
-          </div>
-        </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-ink-muted">
+        <div className="text-3xl opacity-50">👆</div>
+        <p className="max-w-[220px] text-sm leading-relaxed">
+          点击树图中的色块或搜索结果，查看详情与删除风险
+        </p>
       </div>
     );
   }
@@ -70,161 +53,125 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
   const riskInfo = RISK_LEVEL_INFO[node.risk_level];
 
   return (
-    <div className="detail-panel">
-      <div className="detail-title">
+    <div className="flex-1 overflow-y-auto px-4 py-3">
+      <h3 className="mb-3 break-all text-sm font-semibold text-ink">
         {node.is_dir ? "📁 " : "📄 "}
         {node.name}
-      </div>
+      </h3>
 
-      {/* 基本信息 */}
-      <div className="detail-section">
-        <div className="detail-section-title">基本信息</div>
-        <div className="detail-row">
-          <span className="detail-label">类型</span>
-          <span className="detail-value">
-            {node.is_dir ? "目录" : `文件${node.extension ? ` (.${node.extension})` : ""}`}
-          </span>
-        </div>
-        <div className="detail-row">
-          <span className="detail-label">大小</span>
-          <span className="detail-value">{formatSize(node.size)}</span>
-        </div>
+      <Section title="基本信息">
+        <Row label="类型" value={node.is_dir ? "目录" : `文件${node.extension ? ` (.${node.extension})` : ""}`} />
+        <Row label="大小" value={formatSize(node.size)} mono />
         {node.modified_at > 0 && (
-          <div className="detail-row">
-            <span className="detail-label">修改时间</span>
-            <span className="detail-value">
-              {formatDate(node.modified_at)}
-            </span>
-          </div>
+          <Row label="修改时间" value={formatDate(node.modified_at)} mono />
         )}
-        <div className="detail-row">
-          <span className="detail-label">路径</span>
-          <span
-            className="detail-value"
-            style={{
-              fontSize: 10,
-              maxWidth: 200,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              wordBreak: "break-all",
-            }}
-          >
-            {node.path}
-          </span>
-        </div>
-      </div>
+        <Row label="路径" value={node.path} mono small />
+      </Section>
 
-      {/* 分类信息 */}
-      <div className="detail-section">
-        <div className="detail-section-title">分类</div>
-        <div className="detail-row">
-          <span className="detail-label">类别</span>
+      <Section title="分类">
+        <div className="flex items-center justify-between py-1 text-sm">
+          <span className="text-ink-soft">类别</span>
           <span
-            className="detail-badge"
+            className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{
-              backgroundColor: categoryInfo?.color + "33",
+              backgroundColor: `${categoryInfo?.color}22`,
               color: categoryInfo?.color,
             }}
           >
             {categoryInfo?.label ?? node.category}
           </span>
         </div>
-        <div className="detail-row">
-          <span className="detail-label">删除风险</span>
+        <div className="flex items-center justify-between py-1 text-sm">
+          <span className="text-ink-soft">删除风险</span>
           <span
-            className="detail-badge"
+            className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{
-              backgroundColor: riskInfo.color + "33",
+              backgroundColor: `${riskInfo.color}22`,
               color: riskInfo.color,
             }}
           >
             {riskInfo.label}
           </span>
         </div>
-      </div>
+      </Section>
 
-      {/* 风��评估详情（从 Rust 后端获取） */}
       {isLoading && (
-        <div className="detail-section">
-          <div className="detail-section-title">风险评估</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", padding: 8 }}>
-            正在分析...
-          </div>
-        </div>
+        <Section title="风险评估">
+          <p className="px-1 text-xs text-ink-muted">正在分析…</p>
+        </Section>
       )}
 
       {riskDetail && !isLoading && (
-        <div className="detail-section">
-          <div className="detail-section-title">风险评估</div>
-          <div className="detail-explanation">
+        <Section title="风险评估">
+          <p className="mb-2 rounded-lg bg-moss-50 px-2.5 py-2 text-xs leading-relaxed text-ink-soft">
             {riskDetail.explanation}
-          </div>
-          <div className="detail-recommendation">
-            💡 {riskDetail.recommendation}
-          </div>
-        </div>
+          </p>
+          <p className="rounded-lg border-l-[3px] border-moss-400 bg-sand-50 px-2.5 py-2 text-xs leading-relaxed text-moss-700">
+            {riskDetail.recommendation}
+          </p>
+        </Section>
       )}
 
-      {/* 子目录统计 */}
       {node.children && node.children.length > 0 && (
-        <div className="detail-section">
-          <div className="detail-section-title">
-            内容概览 ({node.children.length} 项)
-          </div>
-          <div style={{ fontSize: 12 }}>
-            {node.children
-              .sort((a, b) => b.size - a.size)
-              .slice(0, 10)
-              .map((child) => {
-                const childCatInfo = CATEGORY_INFO[child.category];
-                return (
-                  <div
-                    key={child.path}
-                    className="detail-row"
-                    style={{ padding: "2px 0", fontSize: 11 }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--text-secondary)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        flex: 1,
-                        marginRight: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          display: "inline-block",
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          backgroundColor: childCatInfo?.color,
-                          marginRight: 6,
-                        }}
-                      />
-                      {child.is_dir ? "📁 " : "📄 "}
-                      {child.name}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 11,
-                        color: "var(--text-muted)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {formatSize(child.size)}
-                    </span>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
+        <Section title={`内容概览 (${node.children.length} 项)`}>
+          {[...node.children]
+            .sort((a, b) => b.size - a.size)
+            .slice(0, 10)
+            .map((child) => {
+              const childCatInfo = CATEGORY_INFO[child.category];
+              return (
+                <div
+                  key={child.path}
+                  className="flex items-center gap-2 py-0.5 text-[11px]"
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: childCatInfo?.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate text-ink-soft">
+                    {child.is_dir ? "📁 " : "📄 "}
+                    {child.name}
+                  </span>
+                  <span className="shrink-0 font-mono text-ink-muted">
+                    {formatSize(child.size)}
+                  </span>
+                </div>
+              );
+            })}
+        </Section>
       )}
     </div>
   );
 };
+
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
+  title,
+  children,
+}) => (
+  <div className="mb-4">
+    <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+      {title}
+    </div>
+    {children}
+  </div>
+);
+
+const Row: React.FC<{
+  label: string;
+  value: string;
+  mono?: boolean;
+  small?: boolean;
+}> = ({ label, value, mono, small }) => (
+  <div className="flex items-start justify-between gap-3 py-1 text-sm">
+    <span className="shrink-0 text-ink-soft">{label}</span>
+    <span
+      className={`max-w-[200px] text-right text-ink ${mono ? "font-mono" : ""} ${
+        small ? "text-[10px] break-all" : "text-xs"
+      }`}
+    >
+      {value}
+    </span>
+  </div>
+);
 
 export default FileDetailPanel;

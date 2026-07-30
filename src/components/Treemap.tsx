@@ -52,10 +52,14 @@ const Treemap: React.FC<TreemapProps> = ({
 
   if (!layout) {
     return (
-      <div className={`treemap-container ${isLive ? "treemap-live" : ""}`}>
-        <div className="empty-state">
-          <div className="empty-state-icon">📂</div>
-          <div className="empty-state-text">
+      <div
+        className={`relative flex flex-1 overflow-hidden bg-sand-50/40 ${
+          isLive ? "treemap-live" : ""
+        }`}
+      >
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-ink-muted">
+          <div className="text-4xl opacity-50">📂</div>
+          <div className="max-w-xs text-center text-sm leading-relaxed">
             {isLive
               ? "正在收集目录信息，预览即将出现…"
               : "选择目录并开始扫描以查看空间分布"}
@@ -66,37 +70,28 @@ const Treemap: React.FC<TreemapProps> = ({
   }
 
   return (
-    <div className={`treemap-container ${isLive ? "treemap-live" : ""}`}>
+    <div
+      className={`relative flex flex-1 cursor-crosshair overflow-hidden bg-sand-50/30 ${
+        isLive ? "treemap-live" : ""
+      }`}
+    >
       {isLive && (
-        <div className="treemap-live-banner">边扫描边预览 · 布局会随扫描持续更新</div>
+        <div className="animate-soft-pulse pointer-events-none absolute top-2 right-2 z-[5] rounded-full bg-moss-600 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white shadow-sm">
+          边扫描边预览 · 布局持续更新
+        </div>
       )}
       <svg
         ref={svgRef}
-        className="treemap-svg"
+        className="h-full w-full"
         viewBox="0 0 1000 1000"
         preserveAspectRatio="xMidYMid meet"
       >
         {renderTreemapNode(layout, hoveredNode, setHoveredNode, onNodeSelect)}
       </svg>
 
-      {/* 悬停信息提示 */}
       {hoveredNode && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: 12,
-            left: 12,
-            background: "rgba(0,0,0,0.85)",
-            padding: "8px 12px",
-            borderRadius: 6,
-            fontSize: 12,
-            pointerEvents: "none",
-            zIndex: 10,
-          }}
-        >
-          <div style={{ color: "#e0e0e0", fontWeight: 600 }}>
-            {hoveredNode.name}
-          </div>
+        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl border border-moss-200/80 bg-white/90 px-3 py-2 text-xs shadow-md backdrop-blur-sm">
+          <div className="font-semibold text-ink">{hoveredNode.name}</div>
           <div style={{ color: hoveredNode.color }}>
             {formatSize(hoveredNode.size)} —{" "}
             {CATEGORY_INFO[hoveredNode.category]?.label ?? "其他"}
@@ -148,7 +143,7 @@ function renderTreemapNode(
       width={w}
       height={h}
       fill={node.color}
-      opacity={isHovered ? 0.85 : 0.75}
+      opacity={isHovered ? 0.95 : 0.88}
       className="treemap-rect"
       onMouseEnter={() => onHover(node)}
       onMouseLeave={() => onHover(null)}

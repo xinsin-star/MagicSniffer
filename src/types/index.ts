@@ -55,21 +55,21 @@ export interface CategoryInfo {
   color: string;
 }
 
-/** 所有分类的显示信息映射 */
+/** 所有分类的显示信息映射 — 清新自然色板 */
 export const CATEGORY_INFO: Record<FileCategory, CategoryInfo> = {
-  System: { category: "System", label: "系统文件", color: "#e74c3c" },
-  SystemCache: { category: "SystemCache", label: "系统缓存", color: "#f39c12" },
-  UserCache: { category: "UserCache", label: "用户缓存", color: "#2ecc71" },
-  UserData: { category: "UserData", label: "用户数据", color: "#3498db" },
-  Application: { category: "Application", label: "应用程序", color: "#9b59b6" },
-  Temporary: { category: "Temporary", label: "临时文件", color: "#1abc9c" },
-  Logs: { category: "Logs", label: "日志文件", color: "#e67e22" },
-  Downloads: { category: "Downloads", label: "下载文件", color: "#2980b9" },
-  Trash: { category: "Trash", label: "垃圾桶", color: "#7f8c8d" },
-  XcodeDerived: { category: "XcodeDerived", label: "Xcode 衍生数据", color: "#c0392b" },
-  AppContainer: { category: "AppContainer", label: "应用容器", color: "#8e44ad" },
-  LanguagePack: { category: "LanguagePack", label: "语言包", color: "#16a085" },
-  Other: { category: "Other", label: "其他", color: "#bdc3c7" },
+  System: { category: "System", label: "系统文件", color: "#d17171" },
+  SystemCache: { category: "SystemCache", label: "系统缓存", color: "#d4a574" },
+  UserCache: { category: "UserCache", label: "用户缓存", color: "#7cb798" },
+  UserData: { category: "UserData", label: "用户数据", color: "#6fa0c4" },
+  Application: { category: "Application", label: "应用程序", color: "#89a07a" },
+  Temporary: { category: "Temporary", label: "临时文件", color: "#6db3a8" },
+  Logs: { category: "Logs", label: "日志文件", color: "#c9985a" },
+  Downloads: { category: "Downloads", label: "下载文件", color: "#6b93b8" },
+  Trash: { category: "Trash", label: "垃圾桶", color: "#9aa89c" },
+  XcodeDerived: { category: "XcodeDerived", label: "Xcode 衍生数据", color: "#c07a74" },
+  AppContainer: { category: "AppContainer", label: "应用容器", color: "#7f9bb0" },
+  LanguagePack: { category: "LanguagePack", label: "语言包", color: "#6fa08e" },
+  Other: { category: "Other", label: "其他", color: "#b7c2b6" },
 };
 
 // ─── 风险等级 ───────────────────────────────────────────────────────────────────
@@ -86,10 +86,10 @@ export interface RiskLevelInfo {
 
 /** 风险等级信息映射 */
 export const RISK_LEVEL_INFO: Record<RiskLevel, RiskLevelInfo> = {
-  High: { level: "High", label: "高风险", color: "#e74c3c" },
-  Medium: { level: "Medium", label: "中等风险", color: "#f39c12" },
-  Low: { level: "Low", label: "低风险", color: "#2ecc71" },
-  None: { level: "None", label: "安全", color: "#95a5a6" },
+  High: { level: "High", label: "高风险", color: "#c45c5c" },
+  Medium: { level: "Medium", label: "中等风险", color: "#c9985a" },
+  Low: { level: "Low", label: "低风险", color: "#5f9e6e" },
+  None: { level: "None", label: "安全", color: "#88968c" },
 };
 
 // ─── 系统概览 ───────────────────────────────────────────────────────────────────

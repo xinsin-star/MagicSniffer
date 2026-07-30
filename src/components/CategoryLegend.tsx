@@ -1,28 +1,20 @@
-//! 分类图例组件
-//!
-//! 显示各文件分类的颜色、名称和大小汇总，
-//! 支持点击分类进行过滤显示
+//! 分类图例
 
 import React from "react";
 import type { CategorySummary, FileCategory } from "../types";
 import { CATEGORY_INFO, formatSize } from "../types";
 
 interface CategoryLegendProps {
-  /** 分类汇总数据 */
   summaries: CategorySummary[];
-  /** 选中的分类过滤 */
   selectedCategory: FileCategory | null;
-  /** 分类选择回调 */
   onCategorySelect: (category: FileCategory | null) => void;
 }
 
-/** 分类图例面板 */
 const CategoryLegend: React.FC<CategoryLegendProps> = ({
   summaries,
   selectedCategory,
   onCategorySelect,
 }) => {
-  // 过滤掉大小为 0 的分类
   const filtered = summaries
     .filter((s) => s.total_size > 0)
     .sort((a, b) => b.total_size - a.total_size);
@@ -30,80 +22,56 @@ const CategoryLegend: React.FC<CategoryLegendProps> = ({
   const totalSize = filtered.reduce((sum, s) => sum + s.total_size, 0);
 
   return (
-    <div className="legend-panel">
-      <div className="legend-title">
-        分类图例
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--text-muted)",
-            marginLeft: 8,
-            fontWeight: 400,
-            textTransform: "none",
-          }}
-        >
-          共 {formatSize(totalSize)}
+    <div className="shrink-0 border-b border-moss-200/70 px-4 py-3">
+      <div className="mb-2 flex items-baseline gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+          分类图例
         </span>
+        <span className="text-[11px] text-ink-muted">共 {formatSize(totalSize)}</span>
       </div>
 
-      <div className="legend-list">
+      <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
         {filtered.map((summary) => {
           const info = CATEGORY_INFO[summary.category];
           const isSelected = selectedCategory === summary.category;
-          const pct = totalSize > 0
-            ? ((summary.total_size / totalSize) * 100).toFixed(1)
-            : "0.0";
+          const pct =
+            totalSize > 0
+              ? ((summary.total_size / totalSize) * 100).toFixed(1)
+              : "0.0";
 
           return (
-            <div
+            <button
               key={summary.category}
-              className="legend-item"
-              style={{
-                background: isSelected
-                  ? "var(--bg-hover)"
-                  : "transparent",
-                outline: isSelected
-                  ? "1px solid var(--text-accent)"
-                  : "none",
-              }}
+              type="button"
+              className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition ${
+                isSelected
+                  ? "bg-moss-100 ring-1 ring-moss-400"
+                  : "hover:bg-moss-50"
+              }`}
               onClick={() =>
-                onCategorySelect(
-                  isSelected ? null : summary.category
-                )
+                onCategorySelect(isSelected ? null : summary.category)
               }
             >
-              <div
-                className="legend-color-box"
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-sm"
                 style={{ backgroundColor: info?.color }}
               />
-              <div className="legend-label">
+              <span className="min-w-0 flex-1 truncate text-ink-soft">
                 {info?.label ?? summary.category}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--text-muted)", minWidth: 30, textAlign: "right" }}>
-                {pct}%
-              </div>
-              <div className="legend-size">
+              </span>
+              <span className="w-8 text-right text-[10px] text-ink-muted">{pct}%</span>
+              <span className="font-mono text-[11px] text-ink-muted">
                 {formatSize(summary.total_size)}
-              </div>
-            </div>
+              </span>
+            </button>
           );
         })}
       </div>
 
-      {/* 清除过滤按钮 */}
       {selectedCategory && (
         <button
-          style={{
-            marginTop: 8,
-            padding: "4px 12px",
-            background: "var(--bg-hover)",
-            color: "var(--text-secondary)",
-            border: "1px solid var(--border-color)",
-            borderRadius: 4,
-            fontSize: 11,
-            cursor: "pointer",
-            width: "100%",
-          }}
+          type="button"
+          className="mt-2 w-full rounded-lg border border-moss-200 bg-sand-50 py-1.5 text-[11px] text-ink-soft transition hover:bg-moss-50"
           onClick={() => onCategorySelect(null)}
         >
           显示全部分类

@@ -1,11 +1,4 @@
 //! MagicSniffer - 应用根组件
-//!
-//! 组合所有子组件，管理全局状态：
-//! - 系统概览加载
-//! - 扫描流程控制（边扫边预览）
-//! - 搜索交互
-//! - Treemap 导航
-//! - 分类过滤
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Dashboard from "./components/Dashboard";
@@ -30,12 +23,9 @@ import type {
 } from "./types";
 import { formatSize } from "./types";
 
-/** 应用状态枚举 */
 type AppState = "dashboard" | "scanning" | "results";
 
-/** MagicSniffer 应用根组件 */
 const App: React.FC = () => {
-  // ─── 全局状态 ────────────────────────────────────────────────────
   const [appState, setAppState] = useState<AppState>("dashboard");
   const [overview, setOverview] = useState<SystemOverview | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -45,12 +35,10 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<FileCategory | null>(null);
   const [scanPath, setScanPath] = useState("/");
 
-  // ─── 初始化：加载系统概览 ────────────────────────────────────────
   useEffect(() => {
     const loadOverview = async () => {
       try {
-        const data = await getSystemOverview();
-        setOverview(data);
+        setOverview(await getSystemOverview());
       } catch (e) {
         console.warn("加载系统概览失败（非 Tauri 环境？）:", e);
         setOverview({
@@ -65,7 +53,6 @@ const App: React.FC = () => {
     loadOverview();
   }, []);
 
-  // ─── 扫描进度 + 增量预览监听（全程挂载，避免与 startScan 竞态） ─
   useEffect(() => {
     let unlistenProgress: (() => void) | undefined;
     let unlistenPreview: (() => void) | undefined;
@@ -77,7 +64,6 @@ const App: React.FC = () => {
           onScanProgress(setScanProgress),
           onScanPreview((preview) => {
             setLivePreview(preview);
-            // 有预览数据后保持在可视化区（边扫边看）
             setAppState((prev) => (prev === "dashboard" ? "scanning" : prev));
           }),
         ]);
@@ -89,12 +75,11 @@ const App: React.FC = () => {
         unlistenProgress = p;
         unlistenPreview = v;
       } catch {
-        // 非 Tauri 环境静默失败
+        // 非 Tauri 环境
       }
     };
 
     setup();
-
     return () => {
       cancelled = true;
       unlistenProgress?.();
@@ -102,7 +87,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // ─── 开始完整扫描 ─────────────────────────────────────────────────
   const handleStartScan = useCallback(async () => {
     setAppState("scanning");
     setScanProgress(null);
@@ -114,11 +98,7 @@ const App: React.FC = () => {
     try {
       const result = await startScan({
         path: scanPath || "/",
-        exclude_patterns: [
-          "/private/var/run",
-          "/proc",
-          "/dev",
-        ],
+        exclude_patterns: ["/private/var/run", "/proc", "/dev"],
         min_file_size: 0,
       });
       setScanResult(result);
@@ -129,9 +109,7 @@ const App: React.FC = () => {
           ...prev,
           category_summary: result.category_summary,
           top_consumers: result.root_node.children
-            ? [...result.root_node.children]
-                .sort((a, b) => b.size - a.size)
-                .slice(0, 10)
+            ? [...result.root_node.children].sort((a, b) => b.size - a.size).slice(0, 10)
             : [],
         };
       });
@@ -143,7 +121,6 @@ const App: React.FC = () => {
     }
   }, [scanPath]);
 
-  // ─── 快速扫描已知目录 ─────────────────────────────────────────────
   const handleQuickScan = useCallback(async () => {
     setAppState("scanning");
     setScanProgress(null);
@@ -151,11 +128,9 @@ const App: React.FC = () => {
     setScanResult(null);
     setSelectedCategory(null);
 
-    const homePath = "/Users";
-
     try {
       const result = await startScan({
-        path: homePath,
+        path: "/Users",
         exclude_patterns: [],
         min_file_size: 1048576,
         max_depth: 3,
@@ -186,7 +161,6 @@ const App: React.FC = () => {
     });
   }, []);
 
-  /** 当前用于 Treemap 的树：扫描中用预览，完成后用最终结果 */
   const activeRoot = useMemo((): FileNode | null => {
     if (appState === "scanning" && livePreview?.root_node) {
       return livePreview.root_node;
@@ -235,14 +209,12 @@ const App: React.FC = () => {
     livePreview && livePreview.total_top_dirs > 0
       ? Math.min(
           100,
-          Math.round(
-            (livePreview.completed_top_dirs / livePreview.total_top_dirs) * 100
-          )
+          Math.round((livePreview.completed_top_dirs / livePreview.total_top_dirs) * 100)
         )
       : 0;
 
   return (
-    <div className="app-container">
+    <div className="flex h-screen flex-col overflow-hidden">
       <Toolbar
         appState={appState}
         scanPath={scanPath}
@@ -255,7 +227,7 @@ const App: React.FC = () => {
         }}
       />
 
-      <div className="main-content">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {appState === "dashboard" ? (
           <Dashboard
             overview={overview}
@@ -264,7 +236,11 @@ const App: React.FC = () => {
           />
         ) : (
           <>
-            <div className={`viz-panel ${isLiveScanning ? "is-scanning" : ""}`}>
+            <div
+              className={`relative flex min-w-0 flex-1 flex-col overflow-hidden ${
+                isLiveScanning ? "ring-2 ring-inset ring-moss-300/60" : ""
+              }`}
+            >
               <Treemap
                 data={filteredTreemapData}
                 onNodeSelect={handleNodeSelect}
@@ -272,19 +248,18 @@ const App: React.FC = () => {
                 isLive={isLiveScanning}
               />
               {isLiveScanning && !filteredTreemapData && (
-                <div className="scan-waiting-overlay">
-                  <div className="scan-pulse" />
+                <div className="pointer-events-none absolute inset-0 z-[4] flex flex-col items-center justify-center gap-3 text-sm text-ink-soft">
+                  <div className="animate-scan-ring h-12 w-12 rounded-full border-2 border-moss-400" />
                   <div>正在扫描，矩形块将陆续出现…</div>
                 </div>
               )}
             </div>
 
-            <div className="side-panel">
+            <aside className="flex w-[340px] min-w-[280px] flex-col overflow-hidden border-l border-moss-200/80 bg-white/55 backdrop-blur-md">
               <SearchPanel
                 rootPath={rootPathForSearch}
                 onResultSelect={handleSearchResultSelect}
               />
-
               {activeSummary.length > 0 && (
                 <CategoryLegend
                   summaries={activeSummary}
@@ -292,38 +267,31 @@ const App: React.FC = () => {
                   onCategorySelect={setSelectedCategory}
                 />
               )}
-
               <FileDetailPanel node={selectedNode} />
-            </div>
+            </aside>
           </>
         )}
       </div>
 
       {isLiveScanning && (
-        <div className="progress-bar-container">
-          <div className="progress-bar-track">
+        <div className="shrink-0 border-t border-moss-200/80 bg-white/70 px-4 py-2 backdrop-blur-md">
+          <div className="h-1.5 overflow-hidden rounded-full bg-moss-100">
             <div
-              className="progress-bar-fill live"
-              style={{
-                width: `${previewCoverage > 0 ? previewCoverage : 15}%`,
-              }}
+              className="animate-shimmer h-full rounded-full bg-gradient-to-r from-moss-400 via-moss-300 to-moss-500"
+              style={{ width: `${previewCoverage > 0 ? previewCoverage : 15}%` }}
             />
           </div>
-          <div className="progress-info">
-            <span>
+          <div className="mt-1.5 flex justify-between gap-4 text-[11px] text-ink-muted">
+            <span className="min-w-0 truncate">
               {scanProgress?.phase ?? "正在扫描…"}
-              {scanProgress?.current_path
-                ? `: ${scanProgress.current_path}`
-                : ""}
+              {scanProgress?.current_path ? `: ${scanProgress.current_path}` : ""}
             </span>
-            <span>
+            <span className="shrink-0 font-mono">
               {livePreview
                 ? `顶级 ${livePreview.completed_top_dirs}/${livePreview.total_top_dirs} · `
                 : ""}
-              发现 {scanProgress?.files_found ?? livePreview?.files_found ?? 0}{" "}
-              个文件 · 扫描{" "}
-              {scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0}{" "}
-              个目录
+              发现 {scanProgress?.files_found ?? livePreview?.files_found ?? 0} 个文件 · 扫描{" "}
+              {scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0} 个目录
             </span>
           </div>
         </div>
@@ -331,8 +299,6 @@ const App: React.FC = () => {
     </div>
   );
 };
-
-// ─── 工具栏组件 ─────────────────────────────────────────────────────────
 
 interface ToolbarProps {
   appState: AppState;
@@ -351,72 +317,47 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onStartScan,
   onGoDashboard,
 }) => (
-  <div className="toolbar">
-    <span className="toolbar-title" onClick={onGoDashboard} style={{ cursor: "pointer" }}>
+  <header className="flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
+    <button
+      type="button"
+      onClick={onGoDashboard}
+      className="font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
+    >
       MagicSniffer
-    </span>
+    </button>
 
     {overview && (
-      <>
-        <span style={{ color: "var(--border-light)", marginLeft: 8 }}>|</span>
-        <span
-          style={{
-            fontSize: 12,
-            color: "var(--text-muted)",
-            fontFamily: "var(--font-mono)",
-          }}
-        >
-          已用 {formatSize(overview.used_space)} /
-          总计 {formatSize(overview.total_space)}
-        </span>
-      </>
+      <span className="hidden font-mono text-xs text-ink-muted sm:inline">
+        已用 {formatSize(overview.used_space)} / 总计 {formatSize(overview.total_space)}
+      </span>
     )}
 
     {appState === "scanning" && (
-      <span className="live-badge">LIVE</span>
+      <span className="animate-soft-pulse rounded-md bg-moss-500 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
+        LIVE
+      </span>
     )}
 
-    <div style={{ flex: 1 }} />
+    <div className="flex-1" />
 
-    {appState !== "dashboard" && (
-      <>
-        <input
-          className="toolbar-path-input"
-          type="text"
-          value={scanPath}
-          onChange={(e) => setScanPath(e.target.value)}
-          placeholder="输入扫描路径..."
-        />
-        <button
-          className="btn-primary"
-          style={{ padding: "6px 16px", fontSize: 12 }}
-          onClick={onStartScan}
-          disabled={appState === "scanning"}
-        >
-          {appState === "scanning" ? "扫描中…" : "重新扫描"}
-        </button>
-      </>
-    )}
-
-    {appState === "dashboard" && (
-      <div style={{ display: "flex", gap: 8 }}>
-        <input
-          className="toolbar-path-input"
-          type="text"
-          value={scanPath}
-          onChange={(e) => setScanPath(e.target.value)}
-          placeholder="输入扫描路径，默认 /"
-        />
-        <button
-          className="btn-primary"
-          style={{ padding: "6px 16px", fontSize: 12 }}
-          onClick={onStartScan}
-        >
-          扫描
-        </button>
-      </div>
-    )}
-  </div>
+    <div className="flex items-center gap-2">
+      <input
+        className="w-44 rounded-lg border border-moss-200 bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted focus:border-moss-400 focus:ring-2 focus:ring-moss-200 sm:w-64 md:w-80"
+        type="text"
+        value={scanPath}
+        onChange={(e) => setScanPath(e.target.value)}
+        placeholder="扫描路径，默认 /"
+      />
+      <button
+        type="button"
+        className="rounded-lg bg-moss-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={onStartScan}
+        disabled={appState === "scanning"}
+      >
+        {appState === "scanning" ? "扫描中…" : appState === "dashboard" ? "扫描" : "重新扫描"}
+      </button>
+    </div>
+  </header>
 );
 
 export default App;

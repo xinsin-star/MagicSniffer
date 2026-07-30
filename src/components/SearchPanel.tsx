@@ -1,7 +1,4 @@
-//! 文件搜索面板组件
-//!
-//! 集成 Rust 高性能搜索引擎的前端搜索界面。
-//! 支持模糊搜索、正则表达式和大小过滤。
+//! 文件搜索面板
 
 import React, { useState, useCallback } from "react";
 import type { SearchResult, SearchResultItem } from "../types";
@@ -9,13 +6,10 @@ import { CATEGORY_INFO, RISK_LEVEL_INFO, formatSize } from "../types";
 import { searchFiles } from "../hooks/useTauriCommand";
 
 interface SearchPanelProps {
-  /** 搜索根路径 */
   rootPath: string;
-  /** 搜索结果项点击回调 */
   onResultSelect: (item: SearchResultItem) => void;
 }
 
-/** 搜索面板组件 */
 const SearchPanel: React.FC<SearchPanelProps> = ({
   rootPath,
   onResultSelect,
@@ -28,10 +22,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
 
-  /** 执行搜索 */
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
-
     setIsSearching(true);
     setError(null);
     setResults(null);
@@ -53,15 +45,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
     }
   }, [query, rootPath, useRegex, minSize]);
 
-  /** 键盘事件处理 */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleSearch();
     } else if (e.key === "ArrowDown" && results) {
-      setSelectedIndex((prev) =>
-        Math.min(prev + 1, results.items.length - 1)
-      );
+      setSelectedIndex((prev) => Math.min(prev + 1, results.items.length - 1));
     } else if (e.key === "ArrowUp" && results) {
       setSelectedIndex((prev) => Math.max(prev - 1, -1));
     }
@@ -69,109 +58,92 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
   return (
     <>
-      {/* 搜索输入栏 */}
-      <div className="search-panel" style={{ borderBottom: "none" }}>
-        <div className="search-input-row">
+      <div className="shrink-0 border-b border-moss-200/70 px-4 py-3">
+        <div className="mb-2 flex gap-2">
           <input
-            className="search-input"
+            className="min-w-0 flex-1 rounded-lg border border-moss-200 bg-sand-50 px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-muted focus:border-moss-400 focus:ring-2 focus:ring-moss-200"
             type="text"
-            placeholder="搜索文件或目录（支持正则）..."
+            placeholder="搜索文件或目录…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
           />
           <button
-            className="search-btn"
+            type="button"
+            className="shrink-0 rounded-lg bg-moss-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-moss-500 disabled:opacity-50"
             onClick={handleSearch}
             disabled={isSearching || !query.trim()}
           >
-            {isSearching ? "搜索中..." : "搜索"}
+            {isSearching ? "…" : "搜索"}
           </button>
         </div>
 
-        {/* 搜索选项 */}
-        <div className="search-options">
-          <label className="search-checkbox-label">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-ink-soft">
+          <label className="flex cursor-pointer items-center gap-1.5">
             <input
               type="checkbox"
+              className="rounded border-moss-300 text-moss-600 focus:ring-moss-300"
               checked={useRegex}
               onChange={(e) => setUseRegex(e.target.checked)}
             />
             正则
           </label>
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            最小大小:
-          </span>
+          <span>最小大小</span>
           <input
-            className="search-size-input"
+            className="w-16 rounded-md border border-moss-200 bg-sand-50 px-1.5 py-0.5 font-mono text-[11px] outline-none focus:border-moss-400"
             type="number"
             value={minSize}
             onChange={(e) => setMinSize(e.target.value)}
-            placeholder="0 B"
           />
-          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-            B
-          </span>
+          <span className="text-ink-muted">B</span>
         </div>
       </div>
 
-      {/* 搜索结果列表 */}
-      <div className="search-results">
+      <div className="max-h-44 shrink-0 overflow-y-auto border-b border-moss-200/70">
         {error && (
-          <div className="search-result-info" style={{ color: "#e74c3c" }}>
-            搜索出错: {error}
-          </div>
+          <div className="px-4 py-2 text-[11px] text-red-600">搜索出错: {error}</div>
         )}
 
         {results && (
           <>
-            <div className="search-result-info">
+            <div className="px-4 py-1.5 text-[11px] text-ink-muted">
               找到 {results.total_count} 个结果 ({results.elapsed_ms}ms)
             </div>
-
             {results.items.map((item, index) => {
               const categoryInfo = CATEGORY_INFO[item.category];
               const riskInfo = RISK_LEVEL_INFO[item.risk_level];
-
               return (
-                <div
+                <button
                   key={item.path}
-                  className={`search-result-item ${
-                    index === selectedIndex ? "selected" : ""
+                  type="button"
+                  className={`flex w-full items-center gap-2 border-l-[3px] px-4 py-1.5 text-left transition ${
+                    index === selectedIndex
+                      ? "border-moss-500 bg-moss-50"
+                      : "border-transparent hover:bg-moss-50/80"
                   }`}
                   onClick={() => onResultSelect(item)}
                   onMouseEnter={() => setSelectedIndex(index)}
                 >
-                  <div
-                    className="legend-color-box"
-                    style={{
-                      backgroundColor: categoryInfo?.color,
-                      flexShrink: 0,
-                    }}
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                    style={{ backgroundColor: categoryInfo?.color }}
                   />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="search-result-name">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs text-ink">
                       {item.is_dir ? "📁 " : "📄 "}
                       {item.name}
                     </div>
-                    <div className="search-result-path">
-                      {item.path}
-                    </div>
+                    <div className="truncate text-[10px] text-ink-muted">{item.path}</div>
                   </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div className="search-result-size">
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono text-[11px] text-ink-muted">
                       {formatSize(item.size)}
                     </div>
-                    <div
-                      style={{
-                        fontSize: 9,
-                        color: riskInfo.color,
-                      }}
-                    >
+                    <div className="text-[9px]" style={{ color: riskInfo.color }}>
                       {categoryInfo?.label} · {riskInfo.label}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </>
