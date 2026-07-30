@@ -124,6 +124,7 @@
     "close": "Close"
   },
   "menu": {
+    "home": "Home",
     "settings": "Settings…"
   }
 }

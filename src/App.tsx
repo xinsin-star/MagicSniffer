@@ -389,6 +389,19 @@ const App: React.FC = () => {
     }
   }, [cacheMeta, scanPath, applyCached, refreshCacheList]);
 
+  /** 回到首页（扫描中则先停止） */
+  const handleGoHome = useCallback(async () => {
+    if (scanningRef.current) {
+      leaveAfterStopRef.current = true;
+      try { await stopScan(); } catch { /* ignore */ }
+      return;
+    }
+    setAppState("dashboard");
+    setLivePreview(null);
+    setNavStack([]);
+    void setScanPriority(null);
+  }, []);
+
   const handleClearAllCache = useCallback(async () => {
     try {
       if (scanningRef.current) await stopScan();
@@ -575,6 +588,7 @@ const App: React.FC = () => {
         onStartScan={handleStartScan}
         onResumeScan={handleResumeScan}
         onClearCache={handleClearAllCache}
+        onGoHome={handleGoHome}
         t={t}
         locale={locale}
         setLocale={setLocale}
@@ -671,6 +685,7 @@ interface ToolbarProps {
   onStartScan: () => void;
   onResumeScan: () => void;
   onClearCache: () => void;
+  onGoHome: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: string;
   setLocale: (locale: "zh-CN" | "en") => void;
@@ -689,6 +704,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onStartScan,
   onResumeScan,
   onClearCache,
+  onGoHome,
   t,
   locale,
   setLocale,
@@ -724,6 +740,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
       </button>
       {menuOpen && (
         <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+            onClick={() => { setMenuOpen(false); onGoHome(); }}
+          >
+            <span className="text-base">🏠</span>
+            {t("menu.home")}
+          </button>
           <button
             type="button"
             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
