@@ -4,8 +4,9 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, TreemapSeriesOption } from "echarts";
 import type { FileCategory, FileNode } from "../types";
-import { CATEGORY_INFO, formatSize } from "../types";
+import { CATEGORY_COLORS, formatSize } from "../types";
 import { revealInFileManager } from "../hooks/useTauriCommand";
+import { useTranslation } from "../i18n/useTranslation";
 
 export interface TreemapProps {
   /** 当前可视根节点（已按导航聚焦） */
@@ -61,7 +62,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 
 /** 基于路径哈希，在分类色附近做明暗偏移，使相邻块更易区分 */
 function colorForNode(path: string, category: FileCategory): string {
-  const base = CATEGORY_INFO[category]?.color ?? NATURAL_PALETTE[0]!;
+  const base = CATEGORY_COLORS[category] ?? NATURAL_PALETTE[0]!;
   const h = hashString(path);
   const palette = NATURAL_PALETTE[h % NATURAL_PALETTE.length]!;
   // 混入分类色与调色板色，再微调亮度
@@ -128,6 +129,7 @@ function findNodeByPath(root: FileNode, path: string): FileNode | null {
 
 /** 加载中的马赛克呼吸动画 */
 const TreemapLoading: React.FC = () => {
+  const { t } = useTranslation();
   const cells = useMemo(() => {
     const sizes = [3, 2, 2, 1, 1, 2, 1, 1, 2, 3, 1, 2, 1, 1, 2];
     return sizes.map((span, i) => ({
@@ -165,7 +167,7 @@ const TreemapLoading: React.FC = () => {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss-400 opacity-60" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-moss-500" />
             </span>
-            正在扫描磁盘空间…
+            {t("treemap.scanningOverlay")}
           </div>
         </div>
       </div>
@@ -183,6 +185,7 @@ const Treemap: React.FC<TreemapProps> = ({
   onNavigateTo,
   onNavigateUp,
 }) => {
+  const { t, locale } = useTranslation();
   const chartRef = useRef<ReactECharts>(null);
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -341,11 +344,12 @@ const Treemap: React.FC<TreemapProps> = ({
           };
           const d = i.data;
           if (!d) return "";
-          const cat = CATEGORY_INFO[d.category]?.label ?? d.category;
+          const cat = t(`categoryLabels.${d.category}` as Parameters<typeof t>[0]);
+          const typeLabel = d.isDir ? t("treemap.directory") : t("treemap.file");
           return [
             `<div style="font-weight:600;margin-bottom:4px">${d.name}</div>`,
             `<div>${formatSize(d.value)}</div>`,
-            `<div style="opacity:.7;margin-top:2px">${cat}${d.isDir ? " · 目录" : " · 文件"}</div>`,
+            `<div style="opacity:.7;margin-top:2px">${cat} · ${typeLabel}</div>`,
             `<div style="opacity:.55;font-size:11px;margin-top:4px;max-width:280px;word-break:break-all">${d.path}</div>`,
           ].join("");
         },
@@ -436,7 +440,7 @@ const Treemap: React.FC<TreemapProps> = ({
     const path = ctxMenu.node.path;
     setCtxMenu(null);
     try {
-      await revealInFileManager(path);
+      await revealInFileManager(path, locale);
     } catch (e) {
       console.error("打开文件管理器失败:", e);
     }
@@ -491,9 +495,9 @@ const Treemap: React.FC<TreemapProps> = ({
           disabled={!canGoUp}
           onClick={onNavigateUp}
           className="rounded-lg border border-moss-200 bg-sand-50 px-2 py-1 text-xs font-medium text-moss-800 transition hover:bg-moss-50 disabled:cursor-not-allowed disabled:opacity-40"
-          title="返回上一级"
+          title={t("treemap.backTitle")}
         >
-          ← 上级
+          {t("treemap.back")}
         </button>
 
         <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs">
@@ -523,7 +527,7 @@ const Treemap: React.FC<TreemapProps> = ({
             );
           })}
           {breadcrumb.length === 0 && (
-            <span className="text-ink-muted">等待扫描数据…</span>
+            <span className="text-ink-muted">{t("treemap.waitingData")}</span>
           )}
         </nav>
 
@@ -532,7 +536,7 @@ const Treemap: React.FC<TreemapProps> = ({
             type="button"
             onClick={() => handleZoom(1 / 1.25)}
             className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
-            title="缩小"
+            title={t("treemap.zoomOut")}
           >
             −
           </button>
@@ -540,7 +544,7 @@ const Treemap: React.FC<TreemapProps> = ({
             type="button"
             onClick={() => handleZoom(1.25)}
             className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
-            title="放大"
+            title={t("treemap.zoomIn")}
           >
             +
           </button>
@@ -548,9 +552,9 @@ const Treemap: React.FC<TreemapProps> = ({
             type="button"
             onClick={handleResetView}
             className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
-            title="重置视图"
+            title={t("treemap.resetViewTitle")}
           >
-            重置
+            {t("treemap.resetView")}
           </button>
         </div>
       </div>
@@ -579,13 +583,13 @@ const Treemap: React.FC<TreemapProps> = ({
         {!isLoading && !data && (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
             <div className="text-4xl opacity-50">📂</div>
-            <p className="text-sm">选择目录并开始扫描以查看空间分布</p>
+            <p className="text-sm">{t("treemap.emptyState")}</p>
           </div>
         )}
 
         {isLoading && data && (
           <div className="pointer-events-none absolute top-3 right-3 rounded-full bg-moss-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm">
-            扫描中
+            {t("treemap.scanningBadge")}
           </div>
         )}
 
@@ -612,8 +616,8 @@ const Treemap: React.FC<TreemapProps> = ({
               <span className="text-base">📂</span>
               {typeof navigator !== "undefined" &&
               /mac/i.test(navigator.platform || navigator.userAgent)
-                ? "在 Finder 中显示"
-                : "在资源管理器中显示"}
+                ? t("treemap.showInFinder")
+                : t("treemap.showInExplorer")}
             </button>
             {ctxMenu.node.is_dir && (
               <button
@@ -626,7 +630,7 @@ const Treemap: React.FC<TreemapProps> = ({
                 }}
               >
                 <span className="text-base">↘</span>
-                进入该目录
+                {t("treemap.enterDir")}
               </button>
             )}
           </div>

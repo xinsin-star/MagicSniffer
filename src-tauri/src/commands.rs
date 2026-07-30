@@ -26,9 +26,10 @@ pub struct AppState {
 ///
 /// 返回系统总容量、已用空间、可用空间等基本信息
 #[tauri::command]
-pub async fn get_system_overview() -> Result<SystemOverview, String> {
+pub async fn get_system_overview(lang: Option<String>) -> Result<SystemOverview, String> {
     use sysinfo::Disks;
 
+    let lang = lang.as_deref().unwrap_or("zh-CN");
     let disks = Disks::new_with_refreshed_list();
 
     // 调试：打印所有磁盘信息，帮助定位问题
@@ -49,10 +50,7 @@ pub async fn get_system_overview() -> Result<SystemOverview, String> {
         // 如果找不到 "/"，回退到第一个有效磁盘
         .or_else(|| disks.iter().find(|d| d.total_space() > 0))
         .ok_or_else(|| {
-            format!(
-                "无法获取磁盘信息: 检测到 {} 个磁盘",
-                disks.len()
-            )
+            crate::locale::tr_fmt("error.no_disk_info", lang, &disks.len().to_string())
         })?;
 
     let total_space = main_disk.total_space();
@@ -82,16 +80,17 @@ pub async fn get_system_overview() -> Result<SystemOverview, String> {
 ///
 /// 供前端在切换 UI 前做预检，避免无效路径导致页面闪烁。
 #[tauri::command]
-pub async fn validate_scan_path(path: String) -> Result<String, String> {
+pub async fn validate_scan_path(path: String, lang: Option<String>) -> Result<String, String> {
+    let lang = lang.as_deref().unwrap_or("zh-CN");
     let trimmed = path.trim();
     let input = if trimmed.is_empty() { "/" } else { trimmed };
     let expanded = crate::scanner::expand_user_path(input);
     let p = Path::new(&expanded);
     if !p.exists() {
-        return Err(format!("路径不存在: {expanded}"));
+        return Err(crate::locale::tr_fmt("error.path_not_found", lang, &expanded));
     }
     if !p.is_dir() {
-        return Err(format!("不是可扫描的目录: {expanded}"));
+        return Err(crate::locale::tr_fmt("error.not_directory", lang, &expanded));
     }
     Ok(expanded)
 }
@@ -297,7 +296,8 @@ pub async fn search_files(
 
 /// 获取删除指定路径的风险评估
 #[tauri::command]
-pub async fn assess_delete_risk(path: String) -> Result<RiskDetail, String> {
+pub async fn assess_delete_risk(path: String, lang: Option<String>) -> Result<RiskDetail, String> {
+    let lang = lang.as_deref().unwrap_or("zh-CN");
     let path = Path::new(&path);
     let name = path
         .file_name()
@@ -310,7 +310,7 @@ pub async fn assess_delete_risk(path: String) -> Result<RiskDetail, String> {
     let category = categorizer.categorize(path, &name);
     let risk_level = risk_assessor.assess(path, &name, &category);
     let (explanation, recommendation) =
-        risk_assessor.get_detail(path, &name, &category);
+        risk_assessor.get_detail(path, &name, &category, lang);
 
     Ok(RiskDetail {
         path: path.to_string_lossy().to_string(),
@@ -325,13 +325,14 @@ pub async fn assess_delete_risk(path: String) -> Result<RiskDetail, String> {
 #[tauri::command]
 pub async fn assess_batch_delete_risk(
     paths: Vec<String>,
+    lang: Option<String>,
 ) -> Result<BatchRiskResult, String> {
     let mut items = Vec::new();
     let mut total_size: u64 = 0;
     let mut all_safe = true;
 
     for path_str in paths {
-        let detail = assess_delete_risk(path_str.clone()).await?;
+        let detail = assess_delete_risk(path_str.clone(), lang.clone()).await?;
         let is_safe = detail.risk_level == RiskLevel::None
             || detail.risk_level == RiskLevel::Low;
 
@@ -356,10 +357,11 @@ pub async fn assess_batch_delete_risk(
 
 /// 在系统文件管理器中显示路径（macOS Finder / Windows 资源管理器）
 #[tauri::command]
-pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
+pub async fn reveal_in_file_manager(path: String, lang: Option<String>) -> Result<(), String> {
+    let lang = lang.as_deref().unwrap_or("zh-CN");
     let target = Path::new(&path);
     if !target.exists() {
-        return Err(format!("路径不存在: {path}"));
+        return Err(crate::locale::tr_fmt("error.path_not_found", lang, &path));
     }
 
     #[cfg(target_os = "macos")]
@@ -367,22 +369,21 @@ pub async fn reveal_in_file_manager(path: String) -> Result<(), String> {
         std::process::Command::new("open")
             .args(["-R", &path])
             .spawn()
-            .map_err(|e| format!("无法打开 Finder: {e}"))?;
+            .map_err(|e| crate::locale::tr_fmt("error.cannot_open_finder", lang, &e.to_string()))?;
     }
 
     #[cfg(target_os = "windows")]
     {
         let win_path = path.replace('/', "\\");
-        // 使用 cmd start 以正确处理带空格路径
         std::process::Command::new("cmd")
             .args(["/C", "explorer", &format!("/select,\"{win_path}\"")])
             .spawn()
-            .map_err(|e| format!("无法打开资源管理器: {e}"))?;
+            .map_err(|e| crate::locale::tr_fmt("error.cannot_open_explorer", lang, &e.to_string()))?;
     }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        return Err("当前平台不支持在文件管理器中显示".to_string());
+        return Err(crate::locale::tr("error.platform_not_supported", lang));
     }
 
     Ok(())

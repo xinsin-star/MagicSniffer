@@ -21,16 +21,16 @@ import type {
  * 获取系统存储概览信息
  * 调用 Rust 后端的 get_system_overview 命令
  */
-export async function getSystemOverview(): Promise<SystemOverview> {
-  return invoke<SystemOverview>("get_system_overview");
+export async function getSystemOverview(lang?: string): Promise<SystemOverview> {
+  return invoke<SystemOverview>("get_system_overview", { lang: lang ?? null });
 }
 
 /**
  * 校验扫描路径是否存在且为目录（展开 `~`）
  * 成功返回展开后的绝对路径
  */
-export async function validateScanPath(path: string): Promise<string> {
-  return invoke<string>("validate_scan_path", { path });
+export async function validateScanPath(path: string, lang?: string): Promise<string> {
+  return invoke<string>("validate_scan_path", { path, lang: lang ?? null });
 }
 
 /**
@@ -93,17 +93,18 @@ export async function searchFiles(request: SearchRequest): Promise<SearchResult>
  * 评估删除风险
  * 调用 Rust 后端的 assess_delete_risk 命令
  */
-export async function assessDeleteRisk(path: string): Promise<RiskDetail> {
-  return invoke<RiskDetail>("assess_delete_risk", { path });
+export async function assessDeleteRisk(path: string, lang?: string): Promise<RiskDetail> {
+  return invoke<RiskDetail>("assess_delete_risk", { path, lang: lang ?? null });
 }
 
 /**
  * 批量评估删除风险
  */
 export async function assessBatchDeleteRisk(
-  paths: string[]
+  paths: string[],
+  lang?: string
 ): Promise<BatchRiskResult> {
-  return invoke<BatchRiskResult>("assess_batch_delete_risk", { paths });
+  return invoke<BatchRiskResult>("assess_batch_delete_risk", { paths, lang: lang ?? null });
 }
 
 /**
@@ -134,6 +135,6 @@ export async function onScanPreview(
 }
 
 /** 在 Finder / 资源管理器中显示并选中该路径 */
-export async function revealInFileManager(path: string): Promise<void> {
-  return invoke("reveal_in_file_manager", { path });
+export async function revealInFileManager(path: string, lang?: string): Promise<void> {
+  return invoke("reveal_in_file_manager", { path, lang: lang ?? null });
 }

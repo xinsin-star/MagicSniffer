@@ -5,6 +5,7 @@
 pub mod cache;
 pub mod categorizer;
 pub mod commands;
+pub mod locale;
 pub mod models;
 pub mod risk;
 pub mod scan_control;

@@ -1,0 +1,118 @@
+{
+  "site": {
+    "title": "MagicSniffer - 存储空间分析"
+  },
+  "app": {
+    "title": "MagicSniffer",
+    "scanning": "扫描中",
+    "cached": "缓存",
+    "incompleteCheckpoint": "未完成断点",
+    "cachedAt": "缓存于 {date}",
+    "scanPathPlaceholder": "扫描路径，默认 /",
+    "continueScan": "继续扫描",
+    "clearCache": "清除缓存",
+    "scanningBtn": "扫描中…",
+    "scan": "扫描",
+    "rescan": "重新扫描",
+    "usedOf": "已用 {used} / 总计 {total}",
+    "progressTopLevel": "顶级",
+    "progressFound": "发现 {count} 个文件",
+    "progressScannedDirs": "扫描 {count} 个目录",
+    "scanningPhrase": "正在扫描…"
+  },
+  "dashboard": {
+    "subtitle": "用清爽的矩形树图看清磁盘空间去向，边扫边预览，顺手找回被遗忘的大文件。",
+    "loading": "正在加载系统存储信息…",
+    "totalCapacity": "总容量",
+    "usedSpace": "已用空间",
+    "freeSpace": "可用空间",
+    "available": "{size} 可用",
+    "usedPercent": "{pct}% 已使用",
+    "freePercent": "{pct}% 可用",
+    "historyCache": "历史扫描缓存",
+    "clearAll": "清除全部",
+    "incomplete": "未扫完",
+    "files": "{count} 文件",
+    "dirs": "{count} 目录",
+    "elapsed": "耗时 {sec}s",
+    "startFullScan": "开始完整扫描",
+    "scanHomeDir": "扫描用户主目录",
+    "categoryUsage": "分类占用"
+  },
+  "treemap": {
+    "back": "← 上级",
+    "backTitle": "返回上一级",
+    "waitingData": "等待扫描数据…",
+    "emptyState": "选择目录并开始扫描以查看空间分布",
+    "scanningBadge": "扫描中",
+    "showInFinder": "在 Finder 中显示",
+    "showInExplorer": "在资源管理器中显示",
+    "enterDir": "进入该目录",
+    "directory": "目录",
+    "file": "文件",
+    "zoomOut": "缩小",
+    "zoomIn": "放大",
+    "resetView": "重置",
+    "resetViewTitle": "重置视图",
+    "scanningOverlay": "正在扫描磁盘空间…"
+  },
+  "search": {
+    "placeholder": "搜索文件或目录…",
+    "button": "搜索",
+    "regex": "正则",
+    "minSize": "最小大小",
+    "error": "搜索出错",
+    "results": "找到 {total} 个结果 ({elapsed}ms)"
+  },
+  "detail": {
+    "clickHint": "点击树图中的色块或搜索结果，查看详情与删除风险",
+    "analyzing": "正在分析…",
+    "basicInfo": "基本信息",
+    "type": "类型",
+    "size": "大小",
+    "modified": "修改时间",
+    "path": "路径",
+    "directory": "目录",
+    "fileWithExt": "文件 (.{ext})",
+    "category": "类别",
+    "categorySection": "分类",
+    "risk": "删除风险",
+    "riskAssessment": "风险评估",
+    "contentsOverview": "内容概览 ({count} 项)"
+  },
+  "categoryLegend": {
+    "title": "分类图例",
+    "total": "共 {size}",
+    "showAll": "显示全部分类"
+  },
+  "categoryLabels": {
+    "System": "系统文件",
+    "SystemCache": "系统缓存",
+    "UserCache": "用户缓存",
+    "UserData": "用户数据",
+    "Application": "应用程序",
+    "Temporary": "临时文件",
+    "Logs": "日志文件",
+    "Downloads": "下载文件",
+    "Trash": "垃圾桶",
+    "XcodeDerived": "Xcode 衍生数据",
+    "AppContainer": "应用容器",
+    "LanguagePack": "语言包",
+    "Other": "其他"
+  },
+  "riskLabels": {
+    "High": "高风险",
+    "Medium": "中等风险",
+    "Low": "低风险",
+    "None": "安全"
+  },
+  "phase": {
+    "enumerating": "正在枚举顶级目录...",
+    "scanning": "正在扫描文件系统...",
+    "saving": "扫描已暂停，正在保存断点...",
+    "building": "正在构建最终结果...",
+    "paused": "扫描已暂停",
+    "done": "扫描完成",
+    "default": "扫描中…"
+  }
+}

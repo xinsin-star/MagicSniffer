@@ -47,15 +47,29 @@ export type FileCategory =
 
 /** 分类的显示信息（标签、颜色） */
 export interface CategoryInfo {
-  /** 分类枚举值 */
   category: FileCategory;
-  /** 中文标签 */
   label: string;
-  /** 十六进制颜色 */
   color: string;
 }
 
-/** 所有分类的显示信息映射 — 清新自然色板 */
+/** 分类颜色映射（语言无关） */
+export const CATEGORY_COLORS: Record<FileCategory, string> = {
+  System: "#d17171",
+  SystemCache: "#d4a574",
+  UserCache: "#7cb798",
+  UserData: "#6fa0c4",
+  Application: "#89a07a",
+  Temporary: "#6db3a8",
+  Logs: "#c9985a",
+  Downloads: "#6b93b8",
+  Trash: "#9aa89c",
+  XcodeDerived: "#c07a74",
+  AppContainer: "#7f9bb0",
+  LanguagePack: "#6fa08e",
+  Other: "#b7c2b6",
+};
+
+/** @deprecated 使用 CATEGORY_COLORS + t(`categoryLabels.${category}`) 替代 */
 export const CATEGORY_INFO: Record<FileCategory, CategoryInfo> = {
   System: { category: "System", label: "系统文件", color: "#d17171" },
   SystemCache: { category: "SystemCache", label: "系统缓存", color: "#d4a574" },
@@ -84,7 +98,15 @@ export interface RiskLevelInfo {
   color: string;
 }
 
-/** 风险等级信息映射 */
+/** 风险等级颜色映射（语言无关） */
+export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
+  High: "#c45c5c",
+  Medium: "#c9985a",
+  Low: "#5f9e6e",
+  None: "#88968c",
+};
+
+/** @deprecated 使用 RISK_LEVEL_COLORS + t(`riskLabels.${level}`) 替代 */
 export const RISK_LEVEL_INFO: Record<RiskLevel, RiskLevelInfo> = {
   High: { level: "High", label: "高风险", color: "#c45c5c" },
   Medium: { level: "Medium", label: "中等风险", color: "#c9985a" },
@@ -268,9 +290,9 @@ export function formatSize(bytes: number): string {
 }
 
 /** 格式化 Unix 时间戳为日期字符串 */
-export function formatDate(timestamp: number): string {
+export function formatDate(timestamp: number, locale?: string): string {
   const date = new Date(timestamp * 1000);
-  return date.toLocaleDateString("zh-CN", {
+  return date.toLocaleDateString(locale ?? "zh-CN", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

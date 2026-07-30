@@ -2,7 +2,8 @@
 
 import React from "react";
 import type { CategorySummary, ScanCacheMeta, SystemOverview } from "../types";
-import { CATEGORY_INFO, formatDate, formatSize } from "../types";
+import { CATEGORY_COLORS, formatDate, formatSize } from "../types";
+import { useTranslation } from "../i18n/useTranslation";
 
 interface DashboardProps {
   overview: SystemOverview | null;
@@ -25,13 +26,15 @@ const Dashboard: React.FC<DashboardProps> = ({
   onClearAllCache,
   onResumeScan,
 }) => {
+  const { t, locale } = useTranslation();
+
   if (!overview) {
     return (
       <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">
         <h1 className="font-display text-3xl font-semibold text-moss-800">MagicSniffer</h1>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-ink-muted">
           <div className="text-4xl opacity-60">🌿</div>
-          <p className="text-sm">正在加载系统存储信息…</p>
+          <p className="text-sm">{t("dashboard.loading")}</p>
         </div>
       </div>
     );
@@ -47,17 +50,17 @@ const Dashboard: React.FC<DashboardProps> = ({
           MagicSniffer
         </h1>
         <p className="mt-2 text-base text-ink-soft">
-          用清爽的矩形树图看清磁盘空间去向，边扫边预览，顺手找回被遗忘的大文件。
+          {t("dashboard.subtitle")}
         </p>
       </div>
 
       <div className="mb-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="总容量" value={formatSize(overview.total_space)} sub={`${formatSize(overview.free_space)} 可用`} />
-        <StatCard label="已用空间" value={formatSize(overview.used_space)} sub={`${usedPct}% 已使用`} />
+        <StatCard label={t("dashboard.totalCapacity")} value={formatSize(overview.total_space)} sub={t("dashboard.available", { size: formatSize(overview.free_space) })} />
+        <StatCard label={t("dashboard.usedSpace")} value={formatSize(overview.used_space)} sub={t("dashboard.usedPercent", { pct: usedPct })} />
         <StatCard
-          label="可用空间"
+          label={t("dashboard.freeSpace")}
           value={formatSize(overview.free_space)}
-          sub={`${freePct}% 可用`}
+          sub={t("dashboard.freePercent", { pct: freePct })}
           accent
         />
       </div>
@@ -66,7 +69,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="mb-8 max-w-4xl">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-moss-800">
-              历史扫描缓存
+              {t("dashboard.historyCache")}
               <span className="ml-2 text-sm font-normal text-ink-muted">
                 ({cacheList.length}/5)
               </span>
@@ -76,7 +79,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               onClick={onClearAllCache}
               className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
             >
-              清除全部
+              {t("dashboard.clearAll")}
             </button>
           </div>
           <div className="flex flex-col gap-2">
@@ -90,16 +93,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span className="font-mono text-sm text-ink truncate">{meta.root_path}</span>
                     {meta.incomplete && (
                       <span className="shrink-0 rounded-md bg-sand-200 px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">
-                        未扫完
+                        {t("dashboard.incomplete")}
                       </span>
                     )}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-soft">
-                    <span>{formatDate(meta.cached_at)}</span>
+                    <span>{formatDate(meta.cached_at, locale)}</span>
                     <span>{formatSize(meta.total_size)}</span>
-                    <span>{meta.total_files.toLocaleString()} 文件</span>
-                    <span>{meta.total_dirs.toLocaleString()} 目录</span>
-                    <span>耗时 {(meta.elapsed_ms / 1000).toFixed(1)}s</span>
+                    <span>{t("dashboard.files", { count: meta.total_files.toLocaleString() })}</span>
+                    <span>{t("dashboard.dirs", { count: meta.total_dirs.toLocaleString() })}</span>
+                    <span>{t("dashboard.elapsed", { sec: (meta.elapsed_ms / 1000).toFixed(1) })}</span>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -109,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       onClick={onResumeScan}
                       className="rounded-lg bg-moss-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500"
                     >
-                      继续扫描
+                      {t("app.continueScan")}
                     </button>
                   ) : null}
                   <button
@@ -117,14 +120,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     onClick={() => onOpenCacheEntry(meta.root_path)}
                     className="rounded-lg border border-moss-300 bg-white px-3 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
                   >
-                    打开
+                    {t("treemap.enterDir")}
                   </button>
                   <button
                     type="button"
                     onClick={() => onClearCacheEntry(meta.root_path)}
                     className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
                   >
-                    清除
+                    {t("app.clearCache")}
                   </button>
                 </div>
               </div>
@@ -139,14 +142,14 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={onStartScan}
           className="rounded-xl bg-moss-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-moss-500"
         >
-          开始完整扫描
+          {t("dashboard.startFullScan")}
         </button>
         <button
           type="button"
           onClick={onQuickScan}
           className="rounded-xl border border-moss-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-moss-800 transition hover:border-moss-400 hover:bg-moss-50"
         >
-          扫描用户主目录
+          {t("dashboard.scanHomeDir")}
         </button>
       </div>
 
@@ -179,20 +182,20 @@ const StatCard: React.FC<{
 );
 
 const CategoryBarChart: React.FC<{ summary: CategorySummary[] }> = ({ summary }) => {
+  const { t } = useTranslation();
   const sorted = [...summary].sort((a, b) => b.total_size - a.total_size);
   const max = sorted[0]?.total_size || 1;
 
   return (
     <div>
-      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">分类占用</h2>
+      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">{t("dashboard.categoryUsage")}</h2>
       <div className="flex flex-col gap-3">
         {sorted.map((s) => {
-          const info = CATEGORY_INFO[s.category];
           const pct = Math.max(2, (s.total_size / max) * 100);
           return (
             <div key={s.category}>
               <div className="mb-1 flex justify-between text-xs">
-                <span className="font-medium text-ink">{info?.label ?? s.category}</span>
+                <span className="font-medium text-ink">{t(`categoryLabels.${s.category}` as Parameters<typeof t>[0])}</span>
                 <span className="font-mono text-ink-muted">
                   {formatSize(s.total_size)}
                 </span>
@@ -202,7 +205,7 @@ const CategoryBarChart: React.FC<{ summary: CategorySummary[] }> = ({ summary })
                   className="h-full rounded-full transition-all"
                   style={{
                     width: `${pct}%`,
-                    backgroundColor: info?.color ?? "#94a3b8",
+                    backgroundColor: CATEGORY_COLORS[s.category] ?? "#94a3b8",
                   }}
                 />
               </div>

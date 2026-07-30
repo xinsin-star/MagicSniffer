@@ -2,14 +2,16 @@
 
 import React, { useEffect, useState } from "react";
 import type { FileNode, RiskDetail } from "../types";
-import { CATEGORY_INFO, RISK_LEVEL_INFO, formatSize, formatDate } from "../types";
+import { CATEGORY_COLORS, RISK_LEVEL_COLORS, formatSize, formatDate } from "../types";
 import { assessDeleteRisk } from "../hooks/useTauriCommand";
+import { useTranslation } from "../i18n/useTranslation";
 
 interface FileDetailPanelProps {
   node: FileNode | null;
 }
 
 const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
+  const { t, locale } = useTranslation();
   const [riskDetail, setRiskDetail] = useState<RiskDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -23,7 +25,7 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
     const loadRiskInfo = async () => {
       setIsLoading(true);
       try {
-        const detail = await assessDeleteRisk(node.path);
+        const detail = await assessDeleteRisk(node.path, locale);
         if (!cancelled) setRiskDetail(detail);
       } catch {
         if (!cancelled) setRiskDetail(null);
@@ -43,14 +45,14 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-ink-muted">
         <div className="text-3xl opacity-50">👆</div>
         <p className="max-w-[220px] text-sm leading-relaxed">
-          点击树图中的色块或搜索结果，查看详情与删除风险
+          {t("detail.clickHint")}
         </p>
       </div>
     );
   }
 
-  const categoryInfo = CATEGORY_INFO[node.category];
-  const riskInfo = RISK_LEVEL_INFO[node.risk_level];
+  const catColor = CATEGORY_COLORS[node.category];
+  const riskColor = RISK_LEVEL_COLORS[node.risk_level];
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-3">
@@ -59,50 +61,50 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
         {node.name}
       </h3>
 
-      <Section title="基本信息">
-        <Row label="类型" value={node.is_dir ? "目录" : `文件${node.extension ? ` (.${node.extension})` : ""}`} />
-        <Row label="大小" value={formatSize(node.size)} mono />
+      <Section title={t("detail.basicInfo")}>
+        <Row label={t("detail.type")} value={node.is_dir ? t("detail.directory") : t("detail.fileWithExt", { ext: node.extension ?? "" })} />
+        <Row label={t("detail.size")} value={formatSize(node.size)} mono />
         {node.modified_at > 0 && (
-          <Row label="修改时间" value={formatDate(node.modified_at)} mono />
+          <Row label={t("detail.modified")} value={formatDate(node.modified_at, locale)} mono />
         )}
-        <Row label="路径" value={node.path} mono small />
+        <Row label={t("detail.path")} value={node.path} mono small />
       </Section>
 
-      <Section title="分类">
+      <Section title={t("detail.categorySection")}>
         <div className="flex items-center justify-between py-1 text-sm">
-          <span className="text-ink-soft">类别</span>
+          <span className="text-ink-soft">{t("detail.category")}</span>
           <span
             className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{
-              backgroundColor: `${categoryInfo?.color}22`,
-              color: categoryInfo?.color,
+              backgroundColor: `${catColor}22`,
+              color: catColor,
             }}
           >
-            {categoryInfo?.label ?? node.category}
+            {t(`categoryLabels.${node.category}` as Parameters<typeof t>[0])}
           </span>
         </div>
         <div className="flex items-center justify-between py-1 text-sm">
-          <span className="text-ink-soft">删除风险</span>
+          <span className="text-ink-soft">{t("detail.risk")}</span>
           <span
             className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
             style={{
-              backgroundColor: `${riskInfo.color}22`,
-              color: riskInfo.color,
+              backgroundColor: `${riskColor}22`,
+              color: riskColor,
             }}
           >
-            {riskInfo.label}
+            {t(`riskLabels.${node.risk_level}` as Parameters<typeof t>[0])}
           </span>
         </div>
       </Section>
 
       {isLoading && (
-        <Section title="风险评估">
-          <p className="px-1 text-xs text-ink-muted">正在分析…</p>
+        <Section title={t("detail.riskAssessment")}>
+          <p className="px-1 text-xs text-ink-muted">{t("detail.analyzing")}</p>
         </Section>
       )}
 
       {riskDetail && !isLoading && (
-        <Section title="风险评估">
+        <Section title={t("detail.riskAssessment")}>
           <p className="mb-2 rounded-lg bg-moss-50 px-2.5 py-2 text-xs leading-relaxed text-ink-soft">
             {riskDetail.explanation}
           </p>
@@ -113,12 +115,11 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
       )}
 
       {node.children && node.children.length > 0 && (
-        <Section title={`内容概览 (${node.children.length} 项)`}>
+        <Section title={t("detail.contentsOverview", { count: node.children.length })}>
           {[...node.children]
             .sort((a, b) => b.size - a.size)
             .slice(0, 10)
             .map((child) => {
-              const childCatInfo = CATEGORY_INFO[child.category];
               return (
                 <div
                   key={child.path}
@@ -126,7 +127,7 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
                 >
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: childCatInfo?.color }}
+                    style={{ backgroundColor: CATEGORY_COLORS[child.category] }}
                   />
                   <span className="min-w-0 flex-1 truncate text-ink-soft">
                     {child.is_dir ? "📁 " : "📄 "}

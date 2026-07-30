@@ -85,68 +85,31 @@ impl RiskAssessor {
         }
     }
 
-    /// 获取指定路径的详细风险评估说明
+    /// 获取指定路径的详细风险评估说明（支持中英双语）
     pub fn get_detail(
         &self,
         _path: &Path,
         _name: &str,
         category: &FileCategory,
+        lang: &str,
     ) -> (String, String) {
-        let (explanation, recommendation) = match category {
-            FileCategory::System => (
-                "这是 macOS 系统核心文件，删除可能导致系统不稳定或无法启动。".to_string(),
-                "强烈建议不要删除任何系统文件。".to_string(),
-            ),
-            FileCategory::SystemCache => (
-                "系统缓存文件，删除后系统会自动重建，但可能会暂时降低性能。".to_string(),
-                "可以安全删除以释放空间，重启后缓存会重新生成。".to_string(),
-            ),
-            FileCategory::UserCache => (
-                "应用程序缓存数据，删除后应用可能会重新生成这些文件。".to_string(),
-                "安全可删，建议定期清理以释放磁盘空间。".to_string(),
-            ),
-            FileCategory::UserData => (
-                "您的个人数据文件，删除将永久丢失这些数据。".to_string(),
-                "请确认不再需要这些文件后再删除。".to_string(),
-            ),
-            FileCategory::Application => (
-                "这是应用程序文件，删除后应用将无法运行。".to_string(),
-                "如需卸载应用，请使用 Launchpad 或将其移至废纸篓。".to_string(),
-            ),
-            FileCategory::Temporary => (
-                "临时文件，通常由系统或应用程序创建，可安全清理。".to_string(),
-                "可以安全删除以释放空间。".to_string(),
-            ),
-            FileCategory::Logs => (
-                "系统或应用程序日志文件，用于调试和记录。".to_string(),
-                "可以安全删除以释放空间。".to_string(),
-            ),
-            FileCategory::Downloads => (
-                "从互联网下载的文件。".to_string(),
-                "请确认不需要这些文件后再删除。".to_string(),
-            ),
-            FileCategory::Trash => (
-                "已移入废纸篓的文件，删除后将永久清除。".to_string(),
-                "安全可删，彻底释放磁盘空间。".to_string(),
-            ),
-            FileCategory::XcodeDerived => (
-                "Xcode 编译衍生数据，包括索引和构建产物。".to_string(),
-                "安全可删。Xcode 会在下次打开项目时重新生成。".to_string(),
-            ),
-            FileCategory::AppContainer => (
-                "应用程序的沙盒数据，包含设置、偏好和本地数据。".to_string(),
-                "删除可能导致应用重置或丢失数据。请确认应用已备份。".to_string(),
-            ),
-            FileCategory::LanguagePack => (
-                "应用程序的语言包文件，删除后该语言将无法使用。".to_string(),
-                "如果您不需要多语言支持，可以安全删除以节省空间。".to_string(),
-            ),
-            FileCategory::Other => (
-                "未分类的文件或目录。".to_string(),
-                "请确认其用途后再决定是否删除。".to_string(),
-            ),
+        let cat_key = match category {
+            FileCategory::System => "System",
+            FileCategory::SystemCache => "SystemCache",
+            FileCategory::UserCache => "UserCache",
+            FileCategory::UserData => "UserData",
+            FileCategory::Application => "Application",
+            FileCategory::Temporary => "Temporary",
+            FileCategory::Logs => "Logs",
+            FileCategory::Downloads => "Downloads",
+            FileCategory::Trash => "Trash",
+            FileCategory::XcodeDerived => "XcodeDerived",
+            FileCategory::AppContainer => "AppContainer",
+            FileCategory::LanguagePack => "LanguagePack",
+            FileCategory::Other => "Other",
         };
-
+        let explanation = crate::locale::tr(&format!("risk.{cat_key}.explanation"), lang);
+        let recommendation = crate::locale::tr(&format!("risk.{cat_key}.recommendation"), lang);
         (explanation, recommendation)
     }
 

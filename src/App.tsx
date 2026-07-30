@@ -31,6 +31,7 @@ import type {
   CachedScan,
 } from "./types";
 import { formatSize, formatDate } from "./types";
+import { useTranslation } from "./i18n/useTranslation";
 
 type AppState = "dashboard" | "scanning" | "results";
 
@@ -68,6 +69,7 @@ function buildNavStack(root: FileNode, targetPath: string): FileNode[] {
 }
 
 const App: React.FC = () => {
+  const { t, locale, setLocale } = useTranslation();
   const [appState, setAppState] = useState<AppState>("dashboard");
   const [overview, setOverview] = useState<SystemOverview | null>(null);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -166,10 +168,15 @@ const App: React.FC = () => {
     }
   }, [cacheMeta, refreshCacheList]);
 
+  // 动态设置页面标题
+  useEffect(() => {
+    document.title = t("site.title");
+  }, [locale, t]);
+
   useEffect(() => {
     const loadOverview = async () => {
       try {
-        setOverview(await getSystemOverview());
+        setOverview(await getSystemOverview(locale));
       } catch (e) {
         console.warn("加载系统概览失败（非 Tauri 环境？）:", e);
         setOverview({
@@ -257,7 +264,7 @@ const App: React.FC = () => {
     setScanError(null);
     // 先校验路径，再切 UI，避免无效路径导致页面忽闪
     try {
-      await validateScanPath(scanPath || "/");
+      await validateScanPath(scanPath || "/", locale);
     } catch (e) {
       const msg = typeof e === "string" ? e : String(e);
       setScanError(msg);
@@ -301,7 +308,7 @@ const App: React.FC = () => {
       setScanError(msg);
       setAppState("dashboard");
     }
-  }, [scanPath, applyCached, refreshCacheList]);
+  }, [scanPath, applyCached, refreshCacheList, locale]);
 
   const handleQuickScan = useCallback(async () => {
     setAppState("scanning");
@@ -581,6 +588,9 @@ const App: React.FC = () => {
         onResumeScan={handleResumeScan}
         onClearCache={handleClearAllCache}
         onGoDashboard={handleStopAndLeave}
+        t={t}
+        locale={locale}
+        setLocale={setLocale}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -645,15 +655,14 @@ const App: React.FC = () => {
           </div>
           <div className="mt-1.5 flex justify-between gap-4 text-[11px] text-ink-muted">
             <span className="min-w-0 truncate">
-              {scanProgress?.phase ?? "正在扫描…"}
+              {scanProgress?.phase ? t(scanProgress.phase as Parameters<typeof t>[0]) : t("app.scanningPhrase")}
               {scanProgress?.current_path ? `: ${scanProgress.current_path}` : ""}
             </span>
             <span className="shrink-0 font-mono">
               {livePreview
-                ? `顶级 ${livePreview.completed_top_dirs}/${livePreview.total_top_dirs} · `
+                ? `${t("app.progressTopLevel")} ${livePreview.completed_top_dirs}/${livePreview.total_top_dirs} · `
                 : ""}
-              发现 {scanProgress?.files_found ?? livePreview?.files_found ?? 0} 个文件 · 扫描{" "}
-              {scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0} 个目录
+              {t("app.progressFound", { count: scanProgress?.files_found ?? livePreview?.files_found ?? 0 })} · {t("app.progressScannedDirs", { count: scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0 })}
             </span>
           </div>
         </div>
@@ -675,6 +684,9 @@ interface ToolbarProps {
   onResumeScan: () => void;
   onClearCache: () => void;
   onGoDashboard: () => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  locale: string;
+  setLocale: (locale: "zh-CN" | "en") => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -690,6 +702,9 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onResumeScan,
   onClearCache,
   onGoDashboard,
+  t,
+  locale,
+  setLocale,
 }) => (
   <header className="flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
     <button
@@ -697,34 +712,44 @@ const Toolbar: React.FC<ToolbarProps> = ({
       onClick={onGoDashboard}
       className="font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
     >
-      MagicSniffer
+      {t("app.title")}
     </button>
 
     {overview && (
       <span className="hidden font-mono text-xs text-ink-muted sm:inline">
-        已用 {formatSize(overview.used_space)} / 总计 {formatSize(overview.total_space)}
+        {t("app.usedOf", { used: formatSize(overview.used_space), total: formatSize(overview.total_space) })}
       </span>
     )}
 
     {appState === "scanning" && (
       <span className="animate-soft-pulse rounded-md bg-moss-500 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
-        扫描中
+        {t("app.scanning")}
       </span>
     )}
 
     {appState === "results" && fromCache && (
       <span
         className="rounded-md bg-sand-200 px-2 py-0.5 text-[10px] font-medium text-ink-soft"
-        title={cacheAt ? `缓存于 ${formatDate(cacheAt)}` : "来自本地缓存"}
+        title={cacheAt ? t("app.cachedAt", { date: formatDate(cacheAt, locale) }) : t("app.cached")}
       >
-        {incomplete ? "未完成断点" : "缓存"}
-        {cacheAt ? ` · ${formatDate(cacheAt)}` : ""}
+        {incomplete ? t("app.incompleteCheckpoint") : t("app.cached")}
+        {cacheAt ? ` · ${formatDate(cacheAt, locale)}` : ""}
       </span>
     )}
 
     <div className="flex-1" />
 
     <div className="flex items-center gap-2">
+      {/* Language toggle */}
+      <button
+        type="button"
+        onClick={() => setLocale(locale === "zh-CN" ? "en" : "zh-CN")}
+        className="rounded-lg border border-moss-200 bg-white px-2 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-moss-50"
+        title={locale === "zh-CN" ? "Switch to English" : "切换到中文"}
+      >
+        {locale === "zh-CN" ? "EN" : "中文"}
+      </button>
+
       <div className="relative">
         <input
           className={`w-44 rounded-lg border bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted sm:w-64 md:w-80 ${
@@ -738,7 +763,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           onKeyDown={(e) => {
             if (e.key === "Enter" && appState !== "scanning") onStartScan();
           }}
-          placeholder="扫描路径，默认 /"
+          placeholder={t("app.scanPathPlaceholder")}
           aria-invalid={!!scanError}
           title={scanError ?? undefined}
         />
@@ -758,7 +783,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           className="rounded-lg border border-moss-300 bg-white px-2.5 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
           onClick={onResumeScan}
         >
-          继续扫描
+          {t("app.continueScan")}
         </button>
       )}
       {(fromCache || incomplete) && appState === "results" && (
@@ -767,7 +792,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
           className="rounded-lg border border-moss-200 bg-white px-2.5 py-1.5 text-xs text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
           onClick={onClearCache}
         >
-          清除缓存
+          {t("app.clearCache")}
         </button>
       )}
       <button
@@ -776,7 +801,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
         onClick={onStartScan}
         disabled={appState === "scanning"}
       >
-        {appState === "scanning" ? "扫描中…" : appState === "dashboard" ? "扫描" : "重新扫描"}
+        {appState === "scanning" ? t("app.scanningBtn") : appState === "dashboard" ? t("app.scan") : t("app.rescan")}
       </button>
     </div>
   </header>

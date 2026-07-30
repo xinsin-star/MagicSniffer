@@ -155,7 +155,7 @@ impl Scanner {
             resume.map(|c| c.result.total_dirs).unwrap_or(0),
         ));
 
-        emit_progress(&app_handle, &expanded, 0, 0, "正在枚举顶级目录...");
+        emit_progress(&app_handle, &expanded, 0, 0, "phase.enumerating");
 
         let walk = self.priority_flat_walk(
             path,
@@ -179,9 +179,9 @@ impl Scanner {
             total_files,
             total_dirs,
             if incomplete {
-                "扫描已暂停，正在保存断点..."
+                "phase.saving"
             } else {
-                "正在构建最终结果..."
+                "phase.building"
             },
         );
 
@@ -256,9 +256,9 @@ impl Scanner {
             total_files,
             total_dirs,
             if incomplete {
-                "扫描已暂停"
+                "phase.paused"
             } else {
-                "扫描完成"
+                "phase.done"
             },
         );
 
@@ -844,7 +844,7 @@ impl Scanner {
                     &eps,
                     files_found.load(Ordering::Relaxed),
                     dirs_scanned.load(Ordering::Relaxed),
-                    "正在扫描文件系统...",
+                    "phase.scanning",
                 );
             }
         }

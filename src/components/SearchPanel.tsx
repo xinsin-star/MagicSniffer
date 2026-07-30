@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback } from "react";
 import type { SearchResult, SearchResultItem } from "../types";
-import { CATEGORY_INFO, RISK_LEVEL_INFO, formatSize } from "../types";
+import { CATEGORY_COLORS, RISK_LEVEL_COLORS, formatSize } from "../types";
 import { searchFiles } from "../hooks/useTauriCommand";
+import { useTranslation } from "../i18n/useTranslation";
 
 interface SearchPanelProps {
   rootPath: string;
@@ -21,6 +22,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
   const [results, setResults] = useState<SearchResult | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const handleSearch = useCallback(async () => {
     if (!query.trim()) return;
@@ -63,7 +65,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           <input
             className="min-w-0 flex-1 rounded-lg border border-moss-200 bg-sand-50 px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-muted focus:border-moss-400 focus:ring-2 focus:ring-moss-200"
             type="text"
-            placeholder="搜索文件或目录…"
+            placeholder={t("search.placeholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -74,7 +76,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             onClick={handleSearch}
             disabled={isSearching || !query.trim()}
           >
-            {isSearching ? "…" : "搜索"}
+            {isSearching ? "…" : t("search.button")}
           </button>
         </div>
 
@@ -86,9 +88,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               checked={useRegex}
               onChange={(e) => setUseRegex(e.target.checked)}
             />
-            正则
+            {t("search.regex")}
           </label>
-          <span>最小大小</span>
+          <span>{t("search.minSize")}</span>
           <input
             className="w-16 rounded-md border border-moss-200 bg-sand-50 px-1.5 py-0.5 font-mono text-[11px] outline-none focus:border-moss-400"
             type="number"
@@ -101,17 +103,15 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
       <div className="max-h-44 shrink-0 overflow-y-auto border-b border-moss-200/70">
         {error && (
-          <div className="px-4 py-2 text-[11px] text-red-600">搜索出错: {error}</div>
+          <div className="px-4 py-2 text-[11px] text-red-600">{t("search.error")}: {error}</div>
         )}
 
         {results && (
           <>
             <div className="px-4 py-1.5 text-[11px] text-ink-muted">
-              找到 {results.total_count} 个结果 ({results.elapsed_ms}ms)
+              {t("search.results", { total: results.total_count, elapsed: results.elapsed_ms })}
             </div>
             {results.items.map((item, index) => {
-              const categoryInfo = CATEGORY_INFO[item.category];
-              const riskInfo = RISK_LEVEL_INFO[item.risk_level];
               return (
                 <button
                   key={item.path}
@@ -126,7 +126,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 >
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                    style={{ backgroundColor: categoryInfo?.color }}
+                    style={{ backgroundColor: CATEGORY_COLORS[item.category] }}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-xs text-ink">
@@ -139,8 +139,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     <div className="font-mono text-[11px] text-ink-muted">
                       {formatSize(item.size)}
                     </div>
-                    <div className="text-[9px]" style={{ color: riskInfo.color }}>
-                      {categoryInfo?.label} · {riskInfo.label}
+                    <div className="text-[9px]" style={{ color: RISK_LEVEL_COLORS[item.risk_level] }}>
+                      {t(`categoryLabels.${item.category}` as Parameters<typeof t>[0])} · {t(`riskLabels.${item.risk_level}` as Parameters<typeof t>[0])}
                     </div>
                   </div>
                 </button>

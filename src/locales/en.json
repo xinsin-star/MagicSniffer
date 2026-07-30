@@ -1,0 +1,118 @@
+{
+  "site": {
+    "title": "MagicSniffer - Storage Analyzer"
+  },
+  "app": {
+    "title": "MagicSniffer",
+    "scanning": "Scanning",
+    "cached": "Cached",
+    "incompleteCheckpoint": "Partial checkpoint",
+    "cachedAt": "Cached at {date}",
+    "scanPathPlaceholder": "Scan path, default /",
+    "continueScan": "Continue scan",
+    "clearCache": "Clear cache",
+    "scanningBtn": "Scanning…",
+    "scan": "Scan",
+    "rescan": "Rescan",
+    "usedOf": "Used {used} / Total {total}",
+    "progressTopLevel": "Top-level",
+    "progressFound": "Found {count} files",
+    "progressScannedDirs": "Scanned {count} dirs",
+    "scanningPhrase": "Scanning…"
+  },
+  "dashboard": {
+    "subtitle": "Visualize disk space usage with a clean treemap — scan with live preview and reclaim forgotten large files.",
+    "loading": "Loading system storage info…",
+    "totalCapacity": "Total capacity",
+    "usedSpace": "Used space",
+    "freeSpace": "Free space",
+    "available": "{size} available",
+    "usedPercent": "{pct}% used",
+    "freePercent": "{pct}% free",
+    "historyCache": "Scan history",
+    "clearAll": "Clear all",
+    "incomplete": "Partial",
+    "files": "{count} files",
+    "dirs": "{count} dirs",
+    "elapsed": "{sec}s elapsed",
+    "startFullScan": "Start full scan",
+    "scanHomeDir": "Scan home directory",
+    "categoryUsage": "Category breakdown"
+  },
+  "treemap": {
+    "back": "← Up",
+    "backTitle": "Go up one level",
+    "waitingData": "Waiting for scan data…",
+    "emptyState": "Select a directory and start scanning to see the disk usage map",
+    "scanningBadge": "Scanning",
+    "showInFinder": "Show in Finder",
+    "showInExplorer": "Show in Explorer",
+    "enterDir": "Enter this directory",
+    "directory": "Directory",
+    "file": "File",
+    "zoomOut": "Zoom out",
+    "zoomIn": "Zoom in",
+    "resetView": "Reset",
+    "resetViewTitle": "Reset view",
+    "scanningOverlay": "Scanning disk space…"
+  },
+  "search": {
+    "placeholder": "Search files or directories…",
+    "button": "Search",
+    "regex": "Regex",
+    "minSize": "Min size",
+    "error": "Search error",
+    "results": "Found {total} results ({elapsed}ms)"
+  },
+  "detail": {
+    "clickHint": "Click a treemap tile or a search result to view details and deletion risk",
+    "analyzing": "Analyzing…",
+    "basicInfo": "Basic info",
+    "type": "Type",
+    "size": "Size",
+    "modified": "Modified",
+    "path": "Path",
+    "directory": "Directory",
+    "fileWithExt": "File (.{ext})",
+    "category": "Category",
+    "categorySection": "Category",
+    "risk": "Deletion risk",
+    "riskAssessment": "Risk assessment",
+    "contentsOverview": "Contents ({count} items)"
+  },
+  "categoryLegend": {
+    "title": "Categories",
+    "total": "Total {size}",
+    "showAll": "Show all categories"
+  },
+  "categoryLabels": {
+    "System": "System files",
+    "SystemCache": "System cache",
+    "UserCache": "User cache",
+    "UserData": "User data",
+    "Application": "Applications",
+    "Temporary": "Temporary files",
+    "Logs": "Log files",
+    "Downloads": "Downloads",
+    "Trash": "Trash",
+    "XcodeDerived": "Xcode derived data",
+    "AppContainer": "App containers",
+    "LanguagePack": "Language packs",
+    "Other": "Other"
+  },
+  "riskLabels": {
+    "High": "High risk",
+    "Medium": "Medium risk",
+    "Low": "Low risk",
+    "None": "Safe"
+  },
+  "phase": {
+    "enumerating": "Enumerating top-level directories...",
+    "scanning": "Scanning filesystem...",
+    "saving": "Scan paused, saving checkpoint...",
+    "building": "Building final results...",
+    "paused": "Scan paused",
+    "done": "Scan complete",
+    "default": "Scanning…"
+  }
+}

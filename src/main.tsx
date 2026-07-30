@@ -1,11 +1,13 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { I18nProvider } from "./i18n/I18nProvider";
 import App from "./App";
 import "./styles/index.css";
 
-/** MagicSniffer 应用入口 - 挂载 React 根组件 */
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </React.StrictMode>
 );
