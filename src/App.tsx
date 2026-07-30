@@ -725,7 +725,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   }, [menuOpen]);
 
   return (
-  <header className="flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
+  <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
     {/* App title + dropdown */}
     <div className="relative" ref={menuRef}>
       <button
