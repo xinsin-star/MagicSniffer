@@ -13,6 +13,8 @@ import {
   onScanProgress,
   onScanPreview,
   loadLatestScanCache,
+  loadScanCache,
+  listScanCaches,
   clearScanCache,
   setScanPriority,
   stopScan,
@@ -82,6 +84,7 @@ const App: React.FC = () => {
   const [fromCache, setFromCache] = useState(false);
   const [cacheMeta, setCacheMeta] = useState<ScanCacheMeta | null>(null);
   const [incomplete, setIncomplete] = useState(false);
+  const [cacheList, setCacheList] = useState<ScanCacheMeta[]>([]);
   const scanningRef = React.useRef(false);
   const leaveAfterStopRef = React.useRef(false);
 
@@ -122,6 +125,47 @@ const App: React.FC = () => {
     setAppState("results");
   }, []);
 
+  /** 刷新缓存列表（最多 5 条） */
+  const refreshCacheList = useCallback(async () => {
+    try {
+      const list = await listScanCaches();
+      setCacheList(list);
+    } catch (e) {
+      console.warn("加载缓存列表失败:", e);
+    }
+  }, []);
+
+  /** 打开指定缓存 */
+  const handleOpenCacheEntry = useCallback(async (rootPath: string) => {
+    try {
+      const cached = await loadScanCache(rootPath);
+      if (cached?.result) {
+        applyCached(cached, { fromCache: true });
+      }
+    } catch (e) {
+      console.error("打开缓存失败:", e);
+    }
+  }, [applyCached]);
+
+  /** 清除指定缓存并刷新列表 */
+  const handleClearCacheEntry = useCallback(async (rootPath: string) => {
+    try {
+      await clearScanCache(rootPath);
+      await refreshCacheList();
+      // 若清的是当前正在查看的，回 dashboard
+      if (cacheMeta?.root_path === rootPath) {
+        setCacheMeta(null);
+        setFromCache(false);
+        setIncomplete(false);
+        setScanResult(null);
+        setNavStack([]);
+        setAppState("dashboard");
+      }
+    } catch (e) {
+      console.error("清除缓存失败:", e);
+    }
+  }, [cacheMeta, refreshCacheList]);
+
   useEffect(() => {
     const loadOverview = async () => {
       try {
@@ -140,12 +184,15 @@ const App: React.FC = () => {
     loadOverview();
   }, []);
 
-  // 启动时恢复最近一次扫描缓存
+  // 启动时恢复最近一次扫描缓存 + 加载缓存列表
   useEffect(() => {
     let cancelled = false;
     const restore = async () => {
       try {
-        const cached = await loadLatestScanCache();
+        const [cached] = await Promise.all([
+          loadLatestScanCache(),
+          refreshCacheList(),
+        ]);
         if (cancelled) return;
         if (cached?.result) {
           applyCached(cached, { fromCache: true });
@@ -158,7 +205,7 @@ const App: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [applyCached]);
+  }, [applyCached, refreshCacheList]);
 
   useEffect(() => {
     let unlistenProgress: (() => void) | undefined;
@@ -239,6 +286,7 @@ const App: React.FC = () => {
       );
       scanningRef.current = false;
       applyCached(cached);
+      refreshCacheList();
       if (leaveAfterStopRef.current) {
         leaveAfterStopRef.current = false;
         setAppState("dashboard");
@@ -253,7 +301,7 @@ const App: React.FC = () => {
       setScanError(msg);
       setAppState("dashboard");
     }
-  }, [scanPath, applyCached]);
+  }, [scanPath, applyCached, refreshCacheList]);
 
   const handleQuickScan = useCallback(async () => {
     setAppState("scanning");
@@ -283,6 +331,7 @@ const App: React.FC = () => {
       );
       scanningRef.current = false;
       applyCached(cached);
+      refreshCacheList();
       if (leaveAfterStopRef.current) {
         leaveAfterStopRef.current = false;
         setAppState("dashboard");
@@ -295,7 +344,7 @@ const App: React.FC = () => {
       setAppState("dashboard");
       setLivePreview(null);
     }
-  }, [applyCached]);
+  }, [applyCached, refreshCacheList]);
 
   const handleResumeScan = useCallback(async () => {
     setAppState("scanning");
@@ -315,6 +364,7 @@ const App: React.FC = () => {
       );
       scanningRef.current = false;
       applyCached(cached);
+      refreshCacheList();
       if (leaveAfterStopRef.current) {
         leaveAfterStopRef.current = false;
         setAppState("dashboard");
@@ -326,7 +376,7 @@ const App: React.FC = () => {
       scanningRef.current = false;
       setAppState("results");
     }
-  }, [cacheMeta, scanPath, applyCached]);
+  }, [cacheMeta, scanPath, applyCached, refreshCacheList]);
 
   const handleStopAndLeave = useCallback(async () => {
     if (scanningRef.current) {
@@ -345,17 +395,12 @@ const App: React.FC = () => {
     void setScanPriority(null);
   }, []);
 
-  const handleOpenCached = useCallback(() => {
-    if (!scanResult) return;
-    setAppState("results");
-    setNavStack([scanResult.root_node]);
-  }, [scanResult]);
-
-  const handleClearCache = useCallback(async () => {
+  const handleClearAllCache = useCallback(async () => {
     try {
       if (scanningRef.current) await stopScan();
       await clearScanCache();
       setCacheMeta(null);
+      setCacheList([]);
       setFromCache(false);
       setIncomplete(false);
       setScanResult(null);
@@ -534,7 +579,7 @@ const App: React.FC = () => {
         cacheAt={cacheMeta?.cached_at}
         onStartScan={handleStartScan}
         onResumeScan={handleResumeScan}
-        onClearCache={handleClearCache}
+        onClearCache={handleClearAllCache}
         onGoDashboard={handleStopAndLeave}
       />
 
@@ -542,11 +587,12 @@ const App: React.FC = () => {
         {appState === "dashboard" ? (
           <Dashboard
             overview={overview}
-            cacheMeta={cacheMeta}
+            cacheList={cacheList}
             onStartScan={handleStartScan}
             onQuickScan={handleQuickScan}
-            onOpenCache={handleOpenCached}
-            onClearCache={handleClearCache}
+            onOpenCacheEntry={handleOpenCacheEntry}
+            onClearCacheEntry={handleClearCacheEntry}
+            onClearAllCache={handleClearAllCache}
             onResumeScan={handleResumeScan}
           />
         ) : (

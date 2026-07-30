@@ -6,21 +6,23 @@ import { CATEGORY_INFO, formatDate, formatSize } from "../types";
 
 interface DashboardProps {
   overview: SystemOverview | null;
-  cacheMeta: ScanCacheMeta | null;
+  cacheList: ScanCacheMeta[];
   onStartScan: () => void;
   onQuickScan: () => void;
-  onOpenCache: () => void;
-  onClearCache: () => void;
+  onOpenCacheEntry: (rootPath: string) => void;
+  onClearCacheEntry: (rootPath: string) => void;
+  onClearAllCache: () => void;
   onResumeScan: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   overview,
-  cacheMeta,
+  cacheList,
   onStartScan,
   onQuickScan,
-  onOpenCache,
-  onClearCache,
+  onOpenCacheEntry,
+  onClearCacheEntry,
+  onClearAllCache,
   onResumeScan,
 }) => {
   if (!overview) {
@@ -60,45 +62,73 @@ const Dashboard: React.FC<DashboardProps> = ({
         />
       </div>
 
-      {cacheMeta && (
-        <div className="mb-8 max-w-4xl rounded-2xl border border-moss-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                本地扫描缓存
-              </div>
-              <div className="mt-1 font-mono text-sm text-ink">{cacheMeta.root_path}</div>
-              <div className="mt-1 text-xs text-ink-soft">
-                {formatDate(cacheMeta.cached_at)} · {formatSize(cacheMeta.total_size)} ·{" "}
-                {cacheMeta.total_files.toLocaleString()} 文件
-                {cacheMeta.incomplete ? " · 未扫完" : ""}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {cacheMeta.incomplete ? (
-                <button
-                  type="button"
-                  onClick={onResumeScan}
-                  className="rounded-xl bg-moss-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-moss-500"
-                >
-                  继续扫描
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={onOpenCache}
-                className="rounded-xl border border-moss-300 bg-white px-4 py-2 text-sm font-medium text-moss-800 transition hover:bg-moss-50"
+      {cacheList.length > 0 && (
+        <div className="mb-8 max-w-4xl">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold text-moss-800">
+              历史扫描缓存
+              <span className="ml-2 text-sm font-normal text-ink-muted">
+                ({cacheList.length}/5)
+              </span>
+            </h2>
+            <button
+              type="button"
+              onClick={onClearAllCache}
+              className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
+            >
+              清除全部
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {cacheList.map((meta) => (
+              <div
+                key={meta.root_path}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-moss-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm transition hover:border-moss-300"
               >
-                打开缓存结果
-              </button>
-              <button
-                type="button"
-                onClick={onClearCache}
-                className="rounded-xl border border-moss-200 bg-white px-4 py-2 text-sm text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
-              >
-                清除
-              </button>
-            </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm text-ink truncate">{meta.root_path}</span>
+                    {meta.incomplete && (
+                      <span className="shrink-0 rounded-md bg-sand-200 px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">
+                        未扫完
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-soft">
+                    <span>{formatDate(meta.cached_at)}</span>
+                    <span>{formatSize(meta.total_size)}</span>
+                    <span>{meta.total_files.toLocaleString()} 文件</span>
+                    <span>{meta.total_dirs.toLocaleString()} 目录</span>
+                    <span>耗时 {(meta.elapsed_ms / 1000).toFixed(1)}s</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {meta.incomplete ? (
+                    <button
+                      type="button"
+                      onClick={onResumeScan}
+                      className="rounded-lg bg-moss-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500"
+                    >
+                      继续扫描
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onOpenCacheEntry(meta.root_path)}
+                    className="rounded-lg border border-moss-300 bg-white px-3 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
+                  >
+                    打开
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onClearCacheEntry(meta.root_path)}
+                    className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
+                  >
+                    清除
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
