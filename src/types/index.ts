@@ -154,6 +154,29 @@ export interface ScanResult {
   category_summary: CategorySummary[];
 }
 
+/** 磁盘持久化的扫描缓存 */
+export interface CachedScan {
+  version: number;
+  cached_at: number;
+  result: ScanResult;
+  incomplete?: boolean;
+  pending_paths?: string[];
+  completed_paths?: string[];
+  request?: ScanRequest | null;
+  focus_path?: string | null;
+}
+
+/** 缓存列表摘要（不含完整树） */
+export interface ScanCacheMeta {
+  root_path: string;
+  cached_at: number;
+  total_size: number;
+  total_files: number;
+  total_dirs: number;
+  elapsed_ms: number;
+  incomplete?: boolean;
+}
+
 // ─── 搜索 ───────────────────────────────────────────────────────────────────────
 
 /** 搜索请求参数 - 对应 Rust 的 SearchRequest */

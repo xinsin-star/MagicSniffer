@@ -8,9 +8,14 @@ import CategoryLegend from "./components/CategoryLegend";
 import FileDetailPanel from "./components/FileDetailPanel";
 import {
   getSystemOverview,
+  validateScanPath,
   startScan,
   onScanProgress,
   onScanPreview,
+  loadLatestScanCache,
+  clearScanCache,
+  setScanPriority,
+  stopScan,
 } from "./hooks/useTauriCommand";
 import type {
   FileNode,
@@ -20,10 +25,45 @@ import type {
   SystemOverview,
   FileCategory,
   SearchResultItem,
+  ScanCacheMeta,
+  CachedScan,
 } from "./types";
-import { formatSize } from "./types";
+import { formatSize, formatDate } from "./types";
 
 type AppState = "dashboard" | "scanning" | "results";
+
+function findNodeByPath(root: FileNode, path: string): FileNode | null {
+  if (root.path === path) return root;
+  if (!root.children) return null;
+  for (const child of root.children) {
+    if (path === child.path) return child;
+    if (
+      child.path === "/" ||
+      path.startsWith(`${child.path}/`) ||
+      (child.path.length > 1 && path.startsWith(child.path))
+    ) {
+      const found = findNodeByPath(child, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** 从根构建到目标路径的完整导航栈 */
+function buildNavStack(root: FileNode, targetPath: string): FileNode[] {
+  if (root.path === targetPath) return [root];
+
+  const walk = (node: FileNode, trail: FileNode[]): FileNode[] | null => {
+    if (node.path === targetPath) return trail;
+    for (const child of node.children ?? []) {
+      const found = walk(child, [...trail, child]);
+      if (found) return found;
+    }
+    return null;
+  };
+
+  return walk(root, [root]) ?? [root];
+}
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>("dashboard");
@@ -34,6 +74,53 @@ const App: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<FileNode | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<FileCategory | null>(null);
   const [scanPath, setScanPath] = useState("/");
+  /** 路径预检失败时的友好提示（不切换页面状态，避免忽闪） */
+  const [scanError, setScanError] = useState<string | null>(null);
+  /** 导航栈：从扫描根到当前聚焦目录 */
+  const [navStack, setNavStack] = useState<FileNode[]>([]);
+  /** 当前结果是否来自磁盘缓存 */
+  const [fromCache, setFromCache] = useState(false);
+  const [cacheMeta, setCacheMeta] = useState<ScanCacheMeta | null>(null);
+  const [incomplete, setIncomplete] = useState(false);
+  const scanningRef = React.useRef(false);
+  const leaveAfterStopRef = React.useRef(false);
+
+  const handleSetScanPath = useCallback((p: string) => {
+    setScanPath(p);
+    setScanError(null);
+  }, []);
+
+  const applyCached = useCallback((cached: CachedScan, opts?: { fromCache?: boolean }) => {
+    const result = cached.result;
+    setScanResult(result);
+    setLivePreview(null);
+    setSelectedNode(null);
+    setSelectedCategory(null);
+    setNavStack([result.root_node]);
+    setScanPath(result.root_path);
+    setFromCache(!!opts?.fromCache);
+    setIncomplete(!!cached.incomplete);
+    setCacheMeta({
+      root_path: result.root_path,
+      cached_at: cached.cached_at,
+      total_size: result.root_node.size,
+      total_files: result.total_files,
+      total_dirs: result.total_dirs,
+      elapsed_ms: result.elapsed_ms,
+      incomplete: cached.incomplete,
+    });
+    setOverview((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        category_summary: result.category_summary,
+        top_consumers: result.root_node.children
+          ? [...result.root_node.children].sort((a, b) => b.size - a.size).slice(0, 10)
+          : [],
+      };
+    });
+    setAppState("results");
+  }, []);
 
   useEffect(() => {
     const loadOverview = async () => {
@@ -53,6 +140,26 @@ const App: React.FC = () => {
     loadOverview();
   }, []);
 
+  // 启动时恢复最近一次扫描缓存
+  useEffect(() => {
+    let cancelled = false;
+    const restore = async () => {
+      try {
+        const cached = await loadLatestScanCache();
+        if (cancelled) return;
+        if (cached?.result) {
+          applyCached(cached, { fromCache: true });
+        }
+      } catch (e) {
+        console.warn("加载扫描缓存失败:", e);
+      }
+    };
+    restore();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyCached]);
+
   useEffect(() => {
     let unlistenProgress: (() => void) | undefined;
     let unlistenPreview: (() => void) | undefined;
@@ -64,7 +171,19 @@ const App: React.FC = () => {
           onScanProgress(setScanProgress),
           onScanPreview((preview) => {
             setLivePreview(preview);
+            setFromCache(false);
             setAppState((prev) => (prev === "dashboard" ? "scanning" : prev));
+            setNavStack((prev) => {
+              if (prev.length === 0) return [preview.root_node];
+              const paths = prev.map((n) => n.path);
+              const next: FileNode[] = [];
+              for (const path of paths) {
+                const node: FileNode | null = findNodeByPath(preview.root_node, path);
+                if (!node) break;
+                next.push(node);
+              }
+              return next.length > 0 ? next : [preview.root_node];
+            });
           }),
         ]);
         if (cancelled) {
@@ -88,77 +207,167 @@ const App: React.FC = () => {
   }, []);
 
   const handleStartScan = useCallback(async () => {
+    setScanError(null);
+    // 先校验路径，再切 UI，避免无效路径导致页面忽闪
+    try {
+      await validateScanPath(scanPath || "/");
+    } catch (e) {
+      const msg = typeof e === "string" ? e : String(e);
+      setScanError(msg);
+      return;
+    }
+
     setAppState("scanning");
+    scanningRef.current = true;
     setScanProgress(null);
     setLivePreview(null);
     setScanResult(null);
     setSelectedNode(null);
     setSelectedCategory(null);
+    setNavStack([]);
+    setFromCache(false);
+    setIncomplete(false);
 
     try {
-      const result = await startScan({
-        path: scanPath || "/",
-        exclude_patterns: ["/private/var/run", "/proc", "/dev"],
-        min_file_size: 0,
-      });
-      setScanResult(result);
-      setLivePreview(null);
-      setOverview((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          category_summary: result.category_summary,
-          top_consumers: result.root_node.children
-            ? [...result.root_node.children].sort((a, b) => b.size - a.size).slice(0, 10)
-            : [],
-        };
-      });
-      setAppState("results");
+      const cached = await startScan(
+        {
+          path: scanPath || "/",
+          exclude_patterns: ["/private/var/run", "/proc", "/dev"],
+          min_file_size: 0,
+        },
+        false
+      );
+      scanningRef.current = false;
+      applyCached(cached);
+      if (leaveAfterStopRef.current) {
+        leaveAfterStopRef.current = false;
+        setAppState("dashboard");
+        setLivePreview(null);
+        setNavStack([]);
+      }
     } catch (e) {
       console.error("扫描失败:", e);
-      setAppState("dashboard");
+      scanningRef.current = false;
       setLivePreview(null);
+      const msg = typeof e === "string" ? e : String(e);
+      setScanError(msg);
+      setAppState("dashboard");
     }
-  }, [scanPath]);
+  }, [scanPath, applyCached]);
 
   const handleQuickScan = useCallback(async () => {
     setAppState("scanning");
+    scanningRef.current = true;
     setScanProgress(null);
     setLivePreview(null);
     setScanResult(null);
     setSelectedCategory(null);
+    setNavStack([]);
+    setFromCache(false);
+    setIncomplete(false);
 
     try {
-      const result = await startScan({
-        path: "/Users",
-        exclude_patterns: [],
-        min_file_size: 1048576,
-        max_depth: 3,
-      });
-      setScanResult(result);
-      setLivePreview(null);
-      setAppState("results");
+      const cached = await startScan(
+        {
+          path: "~",
+          exclude_patterns: [
+            "/private/var/run",
+            "/proc",
+            "/dev",
+            "/.Trash",
+            "/Library/Caches/CloudKit",
+          ],
+          min_file_size: 0,
+        },
+        false
+      );
+      scanningRef.current = false;
+      applyCached(cached);
+      if (leaveAfterStopRef.current) {
+        leaveAfterStopRef.current = false;
+        setAppState("dashboard");
+        setLivePreview(null);
+        setNavStack([]);
+      }
     } catch (e) {
       console.error("快速扫描失败:", e);
+      scanningRef.current = false;
       setAppState("dashboard");
       setLivePreview(null);
+    }
+  }, [applyCached]);
+
+  const handleResumeScan = useCallback(async () => {
+    setAppState("scanning");
+    scanningRef.current = true;
+    setScanProgress(null);
+    setLivePreview(null);
+    setFromCache(false);
+
+    try {
+      const cached = await startScan(
+        {
+          path: cacheMeta?.root_path || scanPath || "~",
+          exclude_patterns: ["/private/var/run", "/proc", "/dev"],
+          min_file_size: 0,
+        },
+        true
+      );
+      scanningRef.current = false;
+      applyCached(cached);
+      if (leaveAfterStopRef.current) {
+        leaveAfterStopRef.current = false;
+        setAppState("dashboard");
+        setLivePreview(null);
+        setNavStack([]);
+      }
+    } catch (e) {
+      console.error("续扫失败:", e);
+      scanningRef.current = false;
+      setAppState("results");
+    }
+  }, [cacheMeta, scanPath, applyCached]);
+
+  const handleStopAndLeave = useCallback(async () => {
+    if (scanningRef.current) {
+      leaveAfterStopRef.current = true;
+      try {
+        await stopScan();
+      } catch (e) {
+        console.warn("停止扫描失败:", e);
+        leaveAfterStopRef.current = false;
+      }
+      return;
+    }
+    setAppState("dashboard");
+    setLivePreview(null);
+    setNavStack([]);
+    void setScanPriority(null);
+  }, []);
+
+  const handleOpenCached = useCallback(() => {
+    if (!scanResult) return;
+    setAppState("results");
+    setNavStack([scanResult.root_node]);
+  }, [scanResult]);
+
+  const handleClearCache = useCallback(async () => {
+    try {
+      if (scanningRef.current) await stopScan();
+      await clearScanCache();
+      setCacheMeta(null);
+      setFromCache(false);
+      setIncomplete(false);
+      setScanResult(null);
+      setNavStack([]);
+      setAppState("dashboard");
+    } catch (e) {
+      console.error("清除缓存失败:", e);
     }
   }, []);
 
   const handleNodeSelect = useCallback((node: FileNode) => {
     setSelectedNode(node);
-  }, []);
-
-  const handleSearchResultSelect = useCallback((item: SearchResultItem) => {
-    setSelectedNode({
-      name: item.name,
-      path: item.path,
-      size: item.size,
-      is_dir: item.is_dir,
-      category: item.category,
-      risk_level: item.risk_level,
-      modified_at: item.modified_at,
-    });
   }, []);
 
   const activeRoot = useMemo((): FileNode | null => {
@@ -175,7 +384,10 @@ const App: React.FC = () => {
     return scanResult?.category_summary ?? livePreview?.category_summary ?? [];
   }, [appState, livePreview, scanResult]);
 
-  const filteredTreemapData = useMemo(() => {
+  const filteredTreeRef = React.useRef<FileNode | null>(null);
+
+  /** 按分类过滤后的完整树 */
+  const filteredTree = useMemo(() => {
     if (!activeRoot) return null;
     if (!selectedCategory) return activeRoot;
 
@@ -203,6 +415,102 @@ const App: React.FC = () => {
     return filterByCategory(activeRoot);
   }, [activeRoot, selectedCategory]);
 
+  filteredTreeRef.current = filteredTree;
+
+  const syncPriority = useCallback((path: string | null) => {
+    if (!scanningRef.current) return;
+    void setScanPriority(path);
+  }, []);
+
+  const handleDrillInto = useCallback(
+    (node: FileNode) => {
+      if (!node.is_dir) return;
+      const tree = filteredTreeRef.current;
+      if (!tree) {
+        setSelectedNode(node);
+        setNavStack((prev) => [...prev, node]);
+        syncPriority(node.path);
+        return;
+      }
+      const full = findNodeByPath(tree, node.path) ?? node;
+      setSelectedNode(full);
+      setNavStack(buildNavStack(tree, full.path));
+      syncPriority(full.path);
+    },
+    [syncPriority]
+  );
+
+  const handleNavigateTo = useCallback(
+    (index: number) => {
+      setNavStack((prev) => {
+        if (index < 0 || index >= prev.length) return prev;
+        const next = prev.slice(0, index + 1);
+        const focus = next[next.length - 1];
+        if (focus) {
+          setSelectedNode(focus);
+          syncPriority(index <= 0 ? null : focus.path);
+        }
+        return next;
+      });
+    },
+    [syncPriority]
+  );
+
+  const handleNavigateUp = useCallback(() => {
+    setNavStack((prev) => {
+      if (prev.length <= 1) {
+        syncPriority(null);
+        return prev;
+      }
+      const next = prev.slice(0, -1);
+      const focus = next[next.length - 1];
+      if (focus) {
+        setSelectedNode(focus);
+        syncPriority(next.length <= 1 ? null : focus.path);
+      }
+      return next;
+    });
+  }, [syncPriority]);
+
+  const handleSearchResultSelect = useCallback((item: SearchResultItem) => {
+    setSelectedNode({
+      name: item.name,
+      path: item.path,
+      size: item.size,
+      is_dir: item.is_dir,
+      category: item.category,
+      risk_level: item.risk_level,
+      modified_at: item.modified_at,
+    });
+  }, []);
+
+  /** 当前聚焦节点：导航栈顶，并在过滤树中重解析 */
+  const focusNode = useMemo(() => {
+    if (!filteredTree) return null;
+    if (navStack.length === 0) return filteredTree;
+    const top = navStack[navStack.length - 1]!;
+    return findNodeByPath(filteredTree, top.path) ?? filteredTree;
+  }, [filteredTree, navStack]);
+
+  const breadcrumb = useMemo(() => {
+    if (!filteredTree) return [];
+    if (navStack.length === 0) return [filteredTree];
+    const items: FileNode[] = [];
+    for (const n of navStack) {
+      const resolved = findNodeByPath(filteredTree, n.path);
+      if (!resolved) break;
+      items.push(resolved);
+    }
+    return items.length > 0 ? items : [filteredTree];
+  }, [filteredTree, navStack]);
+
+  // 新树到达且导航为空时初始化
+  useEffect(() => {
+    if (filteredTree && navStack.length === 0) {
+      setNavStack([filteredTree]);
+    }
+  }, [filteredTree, navStack.length]);
+
   const rootPathForSearch = scanResult?.root_path ?? scanPath ?? "/";
   const isLiveScanning = appState === "scanning";
   const previewCoverage =
@@ -218,41 +526,42 @@ const App: React.FC = () => {
       <Toolbar
         appState={appState}
         scanPath={scanPath}
-        setScanPath={setScanPath}
+        setScanPath={handleSetScanPath}
+        scanError={scanError}
         overview={overview}
+        fromCache={fromCache}
+        incomplete={incomplete}
+        cacheAt={cacheMeta?.cached_at}
         onStartScan={handleStartScan}
-        onGoDashboard={() => {
-          setAppState("dashboard");
-          setLivePreview(null);
-        }}
+        onResumeScan={handleResumeScan}
+        onClearCache={handleClearCache}
+        onGoDashboard={handleStopAndLeave}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {appState === "dashboard" ? (
           <Dashboard
             overview={overview}
+            cacheMeta={cacheMeta}
             onStartScan={handleStartScan}
             onQuickScan={handleQuickScan}
+            onOpenCache={handleOpenCached}
+            onClearCache={handleClearCache}
+            onResumeScan={handleResumeScan}
           />
         ) : (
           <>
-            <div
-              className={`relative flex min-w-0 flex-1 flex-col overflow-hidden ${
-                isLiveScanning ? "ring-2 ring-inset ring-moss-300/60" : ""
-              }`}
-            >
+            <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
               <Treemap
-                data={filteredTreemapData}
-                onNodeSelect={handleNodeSelect}
+                data={focusNode}
+                breadcrumb={breadcrumb}
                 selectedPath={selectedNode?.path}
-                isLive={isLiveScanning}
+                isLoading={isLiveScanning}
+                onNodeSelect={handleNodeSelect}
+                onDrillInto={handleDrillInto}
+                onNavigateTo={handleNavigateTo}
+                onNavigateUp={handleNavigateUp}
               />
-              {isLiveScanning && !filteredTreemapData && (
-                <div className="pointer-events-none absolute inset-0 z-[4] flex flex-col items-center justify-center gap-3 text-sm text-ink-soft">
-                  <div className="animate-scan-ring h-12 w-12 rounded-full border-2 border-moss-400" />
-                  <div>正在扫描，矩形块将陆续出现…</div>
-                </div>
-              )}
             </div>
 
             <aside className="flex w-[340px] min-w-[280px] flex-col overflow-hidden border-l border-moss-200/80 bg-white/55 backdrop-blur-md">
@@ -264,7 +573,14 @@ const App: React.FC = () => {
                 <CategoryLegend
                   summaries={activeSummary}
                   selectedCategory={selectedCategory}
-                  onCategorySelect={setSelectedCategory}
+                  onCategorySelect={(cat) => {
+                    setSelectedCategory(cat);
+                    // 过滤变化时回到根
+                    if (filteredTree || activeRoot) {
+                      const root = activeRoot;
+                      if (root) setNavStack([root]);
+                    }
+                  }}
                 />
               )}
               <FileDetailPanel node={selectedNode} />
@@ -304,8 +620,14 @@ interface ToolbarProps {
   appState: AppState;
   scanPath: string;
   setScanPath: (p: string) => void;
+  scanError: string | null;
   overview: SystemOverview | null;
+  fromCache: boolean;
+  incomplete: boolean;
+  cacheAt?: number;
   onStartScan: () => void;
+  onResumeScan: () => void;
+  onClearCache: () => void;
   onGoDashboard: () => void;
 }
 
@@ -313,8 +635,14 @@ const Toolbar: React.FC<ToolbarProps> = ({
   appState,
   scanPath,
   setScanPath,
+  scanError,
   overview,
+  fromCache,
+  incomplete,
+  cacheAt,
   onStartScan,
+  onResumeScan,
+  onClearCache,
   onGoDashboard,
 }) => (
   <header className="flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
@@ -334,20 +662,68 @@ const Toolbar: React.FC<ToolbarProps> = ({
 
     {appState === "scanning" && (
       <span className="animate-soft-pulse rounded-md bg-moss-500 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
-        LIVE
+        扫描中
+      </span>
+    )}
+
+    {appState === "results" && fromCache && (
+      <span
+        className="rounded-md bg-sand-200 px-2 py-0.5 text-[10px] font-medium text-ink-soft"
+        title={cacheAt ? `缓存于 ${formatDate(cacheAt)}` : "来自本地缓存"}
+      >
+        {incomplete ? "未完成断点" : "缓存"}
+        {cacheAt ? ` · ${formatDate(cacheAt)}` : ""}
       </span>
     )}
 
     <div className="flex-1" />
 
     <div className="flex items-center gap-2">
-      <input
-        className="w-44 rounded-lg border border-moss-200 bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted focus:border-moss-400 focus:ring-2 focus:ring-moss-200 sm:w-64 md:w-80"
-        type="text"
-        value={scanPath}
-        onChange={(e) => setScanPath(e.target.value)}
-        placeholder="扫描路径，默认 /"
-      />
+      <div className="relative">
+        <input
+          className={`w-44 rounded-lg border bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted sm:w-64 md:w-80 ${
+            scanError
+              ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200"
+              : "border-moss-200 focus:border-moss-400 focus:ring-2 focus:ring-moss-200"
+          }`}
+          type="text"
+          value={scanPath}
+          onChange={(e) => setScanPath(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && appState !== "scanning") onStartScan();
+          }}
+          placeholder="扫描路径，默认 /"
+          aria-invalid={!!scanError}
+          title={scanError ?? undefined}
+        />
+        {scanError && (
+          <p
+            className="absolute right-0 top-full z-20 mt-1 max-w-[min(20rem,70vw)] truncate rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] text-rose-600 shadow-sm"
+            title={scanError}
+            role="alert"
+          >
+            {scanError}
+          </p>
+        )}
+      </div>
+      {incomplete && appState !== "scanning" && (
+        <button
+          type="button"
+          className="rounded-lg border border-moss-300 bg-white px-2.5 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
+          onClick={onResumeScan}
+        >
+          继续扫描
+        </button>
+      )}
+      {(fromCache || incomplete) && appState === "results" && (
+        <button
+          type="button"
+          className="rounded-lg border border-moss-200 bg-white px-2.5 py-1.5 text-xs text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
+          onClick={onClearCache}
+        >
+          清除缓存
+        </button>
+      )}
       <button
         type="button"
         className="rounded-lg bg-moss-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500 disabled:cursor-not-allowed disabled:opacity-50"

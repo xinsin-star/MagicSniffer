@@ -7,9 +7,10 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   SystemOverview,
   ScanRequest,
-  ScanResult,
   ScanProgress,
   ScanPreview,
+  CachedScan,
+  ScanCacheMeta,
   SearchRequest,
   SearchResult,
   RiskDetail,
@@ -25,11 +26,52 @@ export async function getSystemOverview(): Promise<SystemOverview> {
 }
 
 /**
- * 启动文件系统扫描
- * 调用 Rust 后端的 start_scan 命令
+ * 校验扫描路径是否存在且为目录（展开 `~`）
+ * 成功返回展开后的绝对路径
  */
-export async function startScan(request: ScanRequest): Promise<ScanResult> {
-  return invoke<ScanResult>("start_scan", { request });
+export async function validateScanPath(path: string): Promise<string> {
+  return invoke<string>("validate_scan_path", { path });
+}
+
+/**
+ * 启动文件系统扫描
+ * 返回 CachedScan（含 incomplete 断点信息）
+ */
+export async function startScan(
+  request: ScanRequest,
+  resume = false
+): Promise<CachedScan> {
+  return invoke<CachedScan>("start_scan", { request, resume });
+}
+
+/** 设置扫描优先级路径（下钻时优先扫该目录） */
+export async function setScanPriority(path: string | null): Promise<void> {
+  return invoke("set_scan_priority", { path });
+}
+
+/** 停止当前扫描（保存断点） */
+export async function stopScan(): Promise<void> {
+  return invoke("stop_scan");
+}
+
+/** 加载最近一次扫描缓存 */
+export async function loadLatestScanCache(): Promise<CachedScan | null> {
+  return invoke<CachedScan | null>("load_latest_scan_cache");
+}
+
+/** 按路径加载扫描缓存 */
+export async function loadScanCache(rootPath: string): Promise<CachedScan | null> {
+  return invoke<CachedScan | null>("load_scan_cache", { rootPath });
+}
+
+/** 列出本地扫描缓存摘要 */
+export async function listScanCaches(): Promise<ScanCacheMeta[]> {
+  return invoke<ScanCacheMeta[]>("list_scan_caches");
+}
+
+/** 清除扫描缓存；不传则清空全部 */
+export async function clearScanCache(rootPath?: string): Promise<void> {
+  return invoke("clear_scan_cache", { rootPath: rootPath ?? null });
 }
 
 /**
@@ -89,4 +131,9 @@ export async function onScanPreview(
   return listen<ScanPreview>("scan-preview", (event) => {
     callback(event.payload);
   });
+}
+
+/** 在 Finder / 资源管理器中显示并选中该路径 */
+export async function revealInFileManager(path: string): Promise<void> {
+  return invoke("reveal_in_file_manager", { path });
 }

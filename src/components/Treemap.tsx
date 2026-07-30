@@ -1,430 +1,639 @@
-//! MagicSniffer 风格矩形树图（Treemap）组件
-//!
-//! 实现 Squarified Treemap 算法，生成类似 SpaceSniffer 的可视化效果。
-//! 支持：
-//! - 递归布局（目录嵌套）
-//! - 鼠标悬停高亮
-//! - 点击选中查看详情
-//! - 路径导航（面包屑）
+//! ECharts 矩形树图 — 缩放 / 下钻 / 面包屑导航
 
-import React, { useMemo, useRef, useState } from "react";
-import type { FileNode, TreemapNode } from "../types";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactECharts from "echarts-for-react";
+import type { EChartsOption, TreemapSeriesOption } from "echarts";
+import type { FileCategory, FileNode } from "../types";
 import { CATEGORY_INFO, formatSize } from "../types";
+import { revealInFileManager } from "../hooks/useTauriCommand";
 
-// ─── Treemap 组件 Props ─────────────────────────────────────────────────────────
-interface TreemapProps {
-  /** 根节点文件树数据 */
+export interface TreemapProps {
+  /** 当前可视根节点（已按导航聚焦） */
   data: FileNode | null;
-  /** 节点点击回调 */
-  onNodeSelect: (node: FileNode) => void;
-  /** 当前选中的路径 */
+  /** 从扫描根到当前聚焦的面包屑路径节点 */
+  breadcrumb: FileNode[];
+  /** 选中节点（详情面板） */
   selectedPath?: string;
-  /** 是否处于边扫边预览（实时更新）模式 */
-  isLive?: boolean;
+  /** 是否扫描中 */
+  isLoading?: boolean;
+  /** 单击选中 */
+  onNodeSelect: (node: FileNode) => void;
+  /** 双击目录下钻 */
+  onDrillInto: (node: FileNode) => void;
+  /** 面包屑跳转（index = -1 表示扫描根的上一级不存在，0 为根） */
+  onNavigateTo: (index: number) => void;
+  /** 回到上一级 */
+  onNavigateUp: () => void;
 }
 
-// ─── Treemap 布局计算参数 ──────────────────────────────────────────────────────
-interface LayoutRect {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+/** 自然色系扩展色板，避免同分类色块过于单调 */
+const NATURAL_PALETTE = [
+  "#7cb798", "#6fa0c4", "#d4a574", "#89a07a", "#6db3a8", "#c9985a",
+  "#6b93b8", "#c07a74", "#7f9bb0", "#6fa08e", "#a8c07a", "#8bb8a0",
+  "#b89a6e", "#79a8c4", "#9bb87a", "#c48a78", "#6a9e8a", "#8a9ec0",
+  "#d4b07a", "#7aada0", "#a07a8e", "#8cba8c", "#c4a090", "#70a8b8",
+];
+
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
-/**
- * MagicSniffer 风格的 Squarified Treemap 组件
- *
- * 使用 SVG 渲染，支持递归嵌套和交互
- */
-const Treemap: React.FC<TreemapProps> = ({
-  data,
-  onNodeSelect,
-  isLive = false,
-}) => {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [hoveredNode, setHoveredNode] = useState<TreemapNode | null>(null);
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
 
-  // 计算 treemap 布局
-  const layout = useMemo(() => {
-    if (!data) return null;
-    return computeTreemapLayout(data, 0, 0, 100, 100);
-  }, [data]);
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${[clamp(r), clamp(g), clamp(b)]
+    .map((n) => n.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
 
-  if (!layout) {
-    return (
+/** 基于路径哈希，在分类色附近做明暗偏移，使相邻块更易区分 */
+function colorForNode(path: string, category: FileCategory): string {
+  const base = CATEGORY_INFO[category]?.color ?? NATURAL_PALETTE[0]!;
+  const h = hashString(path);
+  const palette = NATURAL_PALETTE[h % NATURAL_PALETTE.length]!;
+  // 混入分类色与调色板色，再微调亮度
+  const [r1, g1, b1] = hexToRgb(base);
+  const [r2, g2, b2] = hexToRgb(palette);
+  const mix = 0.45 + ((h >> 8) % 30) / 100;
+  let r = r1 * (1 - mix) + r2 * mix;
+  let g = g1 * (1 - mix) + g2 * mix;
+  let b = b1 * (1 - mix) + b2 * mix;
+  const lift = (((h >> 3) % 41) - 20) * 1.2;
+  return rgbToHex(r + lift, g + lift, b + lift * 0.8);
+}
+
+interface EChartsTreeItem {
+  name: string;
+  value: number;
+  path: string;
+  isDir: boolean;
+  category: FileCategory;
+  riskLevel: string;
+  itemStyle: { color: string; borderColor: string; borderWidth: number };
+  children?: EChartsTreeItem[];
+}
+
+function toEChartsTree(node: FileNode, depth: number, maxDepth: number): EChartsTreeItem {
+  const color = colorForNode(node.path, node.category);
+  const item: EChartsTreeItem = {
+    name: node.name || node.path,
+    value: Math.max(node.size, 1),
+    path: node.path,
+    isDir: node.is_dir,
+    category: node.category,
+    riskLevel: node.risk_level,
+    itemStyle: {
+      color,
+      borderColor: "#ffffff",
+      borderWidth: 2,
+    },
+  };
+
+  if (node.is_dir && node.children && node.children.length > 0 && depth < maxDepth) {
+    const kids = [...node.children]
+      .filter((c) => c.size > 0)
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 80)
+      .map((c) => toEChartsTree(c, depth + 1, maxDepth));
+    if (kids.length > 0) item.children = kids;
+  }
+
+  return item;
+}
+
+function findNodeByPath(root: FileNode, path: string): FileNode | null {
+  if (root.path === path) return root;
+  if (!root.children) return null;
+  for (const child of root.children) {
+    if (path === child.path || path.startsWith(child.path + "/")) {
+      const found = findNodeByPath(child, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** 加载中的马赛克呼吸动画 */
+const TreemapLoading: React.FC = () => {
+  const cells = useMemo(() => {
+    const sizes = [3, 2, 2, 1, 1, 2, 1, 1, 2, 3, 1, 2, 1, 1, 2];
+    return sizes.map((span, i) => ({
+      span,
+      color: NATURAL_PALETTE[i % NATURAL_PALETTE.length]!,
+      delay: (i % 6) * 0.12,
+    }));
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-[4] flex flex-col bg-sand-50/80 p-4">
       <div
-        className={`relative flex flex-1 overflow-hidden bg-sand-50/40 ${
-          isLive ? "treemap-live" : ""
-        }`}
+        className="grid h-full w-full gap-1.5"
+        style={{
+          gridTemplateColumns: "repeat(6, 1fr)",
+          gridAutoRows: "minmax(48px, 1fr)",
+        }}
       >
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-ink-muted">
-          <div className="text-4xl opacity-50">📂</div>
-          <div className="max-w-xs text-center text-sm leading-relaxed">
-            {isLive
-              ? "正在收集目录信息，预览即将出现…"
-              : "选择目录并开始扫描以查看空间分布"}
+        {cells.map((c, i) => (
+          <div
+            key={i}
+            className="animate-soft-pulse rounded-lg opacity-70"
+            style={{
+              gridColumn: `span ${c.span}`,
+              backgroundColor: c.color,
+              animationDelay: `${c.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="rounded-2xl border border-moss-200/80 bg-white/85 px-5 py-3 text-sm text-moss-800 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss-400 opacity-60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-moss-500" />
+            </span>
+            正在扫描磁盘空间…
           </div>
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div
-      className={`relative flex flex-1 cursor-crosshair overflow-hidden bg-sand-50/30 ${
-        isLive ? "treemap-live" : ""
-      }`}
-    >
-      {isLive && (
-        <div className="animate-soft-pulse pointer-events-none absolute top-2 right-2 z-[5] rounded-full bg-moss-600 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white shadow-sm">
-          边扫描边预览 · 布局持续更新
-        </div>
-      )}
-      <svg
-        ref={svgRef}
-        className="h-full w-full"
-        viewBox="0 0 1000 1000"
-        preserveAspectRatio="xMidYMid meet"
-      >
-        {renderTreemapNode(layout, hoveredNode, setHoveredNode, onNodeSelect)}
-      </svg>
-
-      {hoveredNode && (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-xl border border-moss-200/80 bg-white/90 px-3 py-2 text-xs shadow-md backdrop-blur-sm">
-          <div className="font-semibold text-ink">{hoveredNode.name}</div>
-          <div style={{ color: hoveredNode.color }}>
-            {formatSize(hoveredNode.size)} —{" "}
-            {CATEGORY_INFO[hoveredNode.category]?.label ?? "其他"}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-// ─── 递归渲染 Treemap SVG 节点 ──────────────────────────────────────────────────
+const Treemap: React.FC<TreemapProps> = ({
+  data,
+  breadcrumb,
+  selectedPath,
+  isLoading = false,
+  onNodeSelect,
+  onDrillInto,
+  onNavigateTo,
+  onNavigateUp,
+}) => {
+  const chartRef = useRef<ReactECharts>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
-/**
- * 递归渲染 Treemap 节点为 SVG 矩形组
- *
- * @param node     - Treemap 布局节点
- * @param hovered  - 当前悬停节点
- * @param onHover  - 悬停状态设置回调
- * @param onSelect - 点击选择回调
- * @param depth    - 当前递归深度
- */
-function renderTreemapNode(
-  node: TreemapNode,
-  hovered: TreemapNode | null,
-  onHover: (n: TreemapNode | null) => void,
-  onSelect: (n: FileNode) => void,
-  depth: number = 0
-): React.ReactNode[] {
-  const elements: React.ReactNode[] = [];
+  const [ctxMenu, setCtxMenu] = useState<{
+    x: number;
+    y: number;
+    node: FileNode;
+  } | null>(null);
 
-  // 跳过过小的矩形（4x4 以下不渲染，避免视觉噪点）
-  const minSize = 0.5; // 百分比
-  if (node.width < minSize || node.height < minSize) return elements;
+  useEffect(() => {
+    const close = () => setCtxMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, []);
 
-  // SVG 坐标（将百分比映射到 1000x1000 视口）
-  const x = (node.x / 100) * 1000;
-  const y = (node.y / 100) * 1000;
-  const w = (node.width / 100) * 1000;
-  const h = (node.height / 100) * 1000;
+  const treeData = useMemo(() => {
+    if (!data) return null;
+    // 当前聚焦节点：展示其子级；若无子级则展示自身
+    if (data.children && data.children.length > 0) {
+      return [...data.children]
+        .filter((c) => c.size > 0)
+        .sort((a, b) => b.size - a.size)
+        .slice(0, 120)
+        .map((c) => toEChartsTree(c, 0, 2));
+    }
+    return [toEChartsTree(data, 0, 1)];
+  }, [data]);
 
-  const isHovered = hovered?.path === node.path;
+  const option: EChartsOption = useMemo(() => {
+    const series: TreemapSeriesOption = {
+      type: "treemap",
+      width: "100%",
+      height: "100%",
+      roam: true,
+      nodeClick: false,
+      breadcrumb: { show: false },
+      animationDurationUpdate: 400,
+      animationEasingUpdate: "quarticOut",
+      leafDepth: 2,
+      visibleMin: 300,
+      // 叶子标签：居中简洁显示
+      label: {
+        show: true,
+        position: "inside",
+        distance: 0,
+        formatter: (params: unknown) => {
+          const p = params as {
+            name?: string;
+            value?: number;
+            treePathInfo?: unknown[];
+          };
+          const name = p.name ?? "";
+          const size = formatSize(Number(p.value) || 0);
+          // 过长名称截断
+          const short =
+            name.length > 18 ? `${name.slice(0, 16)}…` : name;
+          return `{name|${short}}\n{size|${size}}`;
+        },
+        rich: {
+          name: {
+            fontSize: 12,
+            fontWeight: 600,
+            fontFamily: "Figtree, PingFang SC, sans-serif",
+            color: "#1a2420",
+            lineHeight: 18,
+            align: "center",
+            textShadowColor: "rgba(255,255,255,0.7)",
+            textShadowBlur: 3,
+          },
+          size: {
+            fontSize: 10,
+            fontFamily: "IBM Plex Mono, monospace",
+            color: "rgba(26,36,32,0.72)",
+            lineHeight: 15,
+            align: "center",
+            textShadowColor: "rgba(255,255,255,0.65)",
+            textShadowBlur: 2,
+          },
+        },
+      },
+      // 父级目录条：细长顶栏，只显示名称
+      upperLabel: {
+        show: true,
+        height: 26,
+        formatter: (params: unknown) => {
+          const p = params as { name?: string };
+          const name = p.name ?? "";
+          return name.length > 28 ? `${name.slice(0, 26)}…` : name;
+        },
+        color: "#243028",
+        fontSize: 11,
+        fontWeight: 600,
+        fontFamily: "Figtree, PingFang SC, sans-serif",
+        padding: [0, 10],
+        align: "left",
+        verticalAlign: "middle",
+        backgroundColor: "rgba(255,255,255,0.78)",
+        borderRadius: [6, 6, 0, 0],
+      },
+      itemStyle: {
+        borderColor: "#fff",
+        borderWidth: 2,
+        gapWidth: 2,
+      },
+      levels: [
+        {
+          itemStyle: { borderWidth: 0, gapWidth: 3 },
+          upperLabel: { show: false },
+        },
+        {
+          itemStyle: { borderWidth: 2, gapWidth: 2, borderColor: "#fff" },
+          upperLabel: {
+            show: true,
+            height: 26,
+            backgroundColor: "rgba(255,255,255,0.78)",
+          },
+          label: { show: false },
+        },
+        {
+          colorSaturation: [0.35, 0.55],
+          itemStyle: {
+            borderWidth: 1,
+            gapWidth: 1,
+            borderColorSaturation: 0.6,
+          },
+          upperLabel: { show: false },
+          label: {
+            show: true,
+            fontSize: 11,
+          },
+        },
+      ],
+      data: treeData ?? [],
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 12,
+          shadowColor: "rgba(36,48,40,0.25)",
+        },
+      },
+    };
 
-  // 渲染矩形块
-  elements.push(
-    <rect
-      key={`rect-${node.path}`}
-      x={x}
-      y={y}
-      width={w}
-      height={h}
-      fill={node.color}
-      opacity={isHovered ? 0.95 : 0.88}
-      className="treemap-rect"
-      onMouseEnter={() => onHover(node)}
-      onMouseLeave={() => onHover(null)}
-      onClick={() =>
-        onSelect({
-          name: node.name,
-          path: node.path,
-          size: node.size,
-          is_dir: node.is_dir,
-          category: node.category,
-          risk_level: node.risk_level,
-          modified_at: 0,
-        })
-      }
-    />
+    return {
+      backgroundColor: "transparent",
+      tooltip: {
+        confine: true,
+        formatter: (info: unknown) => {
+          const i = info as {
+            name?: string;
+            value?: number;
+            data?: EChartsTreeItem;
+          };
+          const d = i.data;
+          if (!d) return "";
+          const cat = CATEGORY_INFO[d.category]?.label ?? d.category;
+          return [
+            `<div style="font-weight:600;margin-bottom:4px">${d.name}</div>`,
+            `<div>${formatSize(d.value)}</div>`,
+            `<div style="opacity:.7;margin-top:2px">${cat}${d.isDir ? " · 目录" : " · 文件"}</div>`,
+            `<div style="opacity:.55;font-size:11px;margin-top:4px;max-width:280px;word-break:break-all">${d.path}</div>`,
+          ].join("");
+        },
+      },
+      series: [series],
+    };
+  }, [treeData]);
+
+  const resolveNode = useCallback((path: string): FileNode | null => {
+    const root = dataRef.current;
+    if (!root) return null;
+    return findNodeByPath(root, path) ?? (root.path === path ? root : null);
+  }, []);
+
+  const onEvents = useMemo(
+    () => ({
+      click: (params: { data?: EChartsTreeItem }) => {
+        setCtxMenu(null);
+        const d = params.data;
+        if (!d?.path) return;
+        const found = resolveNode(d.path);
+        const node: FileNode =
+          found ??
+          ({
+            name: d.name,
+            path: d.path,
+            size: d.value,
+            is_dir: d.isDir,
+            category: d.category,
+            risk_level: d.riskLevel as FileNode["risk_level"],
+            modified_at: 0,
+          } satisfies FileNode);
+        onNodeSelect(node);
+      },
+      dblclick: (params: { data?: EChartsTreeItem }) => {
+        setCtxMenu(null);
+        const d = params.data;
+        if (!d?.path || !d.isDir) return;
+        const found = resolveNode(d.path);
+        const node: FileNode =
+          found ??
+          ({
+            name: d.name,
+            path: d.path,
+            size: d.value,
+            is_dir: true,
+            category: d.category,
+            risk_level: d.riskLevel as FileNode["risk_level"],
+            modified_at: 0,
+            children: [],
+          } satisfies FileNode);
+        onDrillInto(node);
+      },
+      contextmenu: (params: {
+        data?: EChartsTreeItem;
+        event?: { event?: MouseEvent };
+      }) => {
+        const native = params.event?.event;
+        if (native) {
+          native.preventDefault();
+          native.stopPropagation();
+        }
+        const d = params.data;
+        if (!d?.path) return;
+        const found = resolveNode(d.path);
+        const node: FileNode =
+          found ??
+          ({
+            name: d.name,
+            path: d.path,
+            size: d.value,
+            is_dir: d.isDir,
+            category: d.category,
+            risk_level: d.riskLevel as FileNode["risk_level"],
+            modified_at: 0,
+          } satisfies FileNode);
+        onNodeSelect(node);
+        const x = Math.min(native?.clientX ?? 0, window.innerWidth - 200);
+        const y = Math.min(native?.clientY ?? 0, window.innerHeight - 140);
+        setCtxMenu({ x, y, node });
+      },
+    }),
+    [onNodeSelect, onDrillInto, resolveNode]
   );
 
-  // 添加文本标签（仅矩形足够大时）
-  const labelSize = Math.min(w, h);
-  const fontSize = Math.max(10, Math.min(24, labelSize / 6));
-
-  if (w > 40 && h > 25) {
-    elements.push(
-      <text
-        key={`label-${node.path}`}
-        x={x + 6}
-        y={y + fontSize + 4}
-        fontSize={fontSize}
-        className="treemap-label"
-      >
-        {truncateText(node.name, w, fontSize)}
-      </text>
-    );
-  }
-
-  // 添加大小标签
-  if (w > 60 && h > 40) {
-    elements.push(
-      <text
-        key={`size-${node.path}`}
-        x={x + 6}
-        y={y + fontSize * 2 + 8}
-        fontSize={Math.max(9, fontSize - 2)}
-        className="treemap-size-label"
-      >
-        {formatSize(node.size)}
-      </text>
-    );
-  }
-
-  // 递归渲染子节点（仅当前节点未被选中展开时显示子节点）
-  if (node.children && depth < 8) {
-    for (const child of node.children) {
-      elements.push(
-        ...renderTreemapNode(child, hovered, onHover, onSelect, depth + 1)
-      );
+  const handleReveal = async () => {
+    if (!ctxMenu) return;
+    const path = ctxMenu.node.path;
+    setCtxMenu(null);
+    try {
+      await revealInFileManager(path);
+    } catch (e) {
+      console.error("打开文件管理器失败:", e);
     }
-  }
-
-  return elements;
-}
-
-// ─── 文本截断 ───────────────────────────────────────────────────────────────────
-
-/** 根据可用宽度截断文本 */
-function truncateText(text: string, maxWidth: number, fontSize: number): string {
-  // 每个字符大约占 fontSize * 0.6 像素
-  const charWidth = fontSize * 0.6;
-  const maxChars = Math.floor(maxWidth / charWidth);
-
-  if (text.length <= maxChars) return text;
-  return text.slice(0, Math.max(1, maxChars - 2)) + "..";
-}
-
-// ─── Squarified Treemap 布局算法 ────────────────────────────────────────────────
-
-/**
- * 计算 Squarified Treemap 布局
- *
- * 算法核心思想：
- * 1. 按大小降序排列子节点
- * 2. 逐个添加节点到当前行，同时计算长宽比
- * 3. 当长宽比开始恶化时，将当前行布局为一行，开始新行
- * 4. 递归处理子目录
- *
- * 参考：Bruls, Huizing, van Wijk. "Squarified Treemaps" (2000)
- */
-function computeTreemapLayout(
-  node: FileNode,
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): TreemapNode {
-  const color = CATEGORY_INFO[node.category]?.color ?? "#bdc3c7";
-
-  // 基本 Treemap 节点
-  const result: TreemapNode = {
-    name: node.name,
-    path: node.path,
-    size: node.size,
-    x,
-    y,
-    width,
-    height,
-    color,
-    category: node.category,
-    risk_level: node.risk_level,
-    is_dir: node.is_dir,
   };
 
-  // 如果有子节点，计算子节点布局
-  if (node.children && node.children.length > 0) {
-    // 过滤掉大小为 0 的节点
-    const validChildren = node.children.filter((c) => c.size > 0);
+  // 选中高亮：通过 dispatchAction
+  useEffect(() => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst || !selectedPath) return;
+    // ECharts treemap 无直接按 path 高亮 API，依赖 tooltip/click 即可
+  }, [selectedPath]);
 
-    if (validChildren.length > 0) {
-      // 按大小降序排列
-      const sorted = [...validChildren].sort((a, b) => b.size - a.size);
+  const canGoUp = breadcrumb.length > 1;
 
-      // 计算子节点布局
-      const childLayouts = squarify(sorted, x, y, width, height);
+  const handleZoom = (factor: number) => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    // roam 缩放：通过 dispatchAction
+    inst.dispatchAction({
+      type: "treemapZoomToNode",
+      targetId: undefined,
+    });
+    // 备用：用 getOption 改 zoom
+    const opt = inst.getOption() as {
+      series?: Array<{ zoom?: number; center?: number[] }>;
+    };
+    const series0 = opt.series?.[0];
+    if (!series0) return;
+    const currentZoom = typeof series0.zoom === "number" ? series0.zoom : 1;
+    inst.setOption({
+      series: [
+        {
+          zoom: Math.max(0.5, Math.min(4, currentZoom * factor)),
+        },
+      ],
+    });
+  };
 
-      // 递归处理子节点（如果子节点是目录且有下级）
-      result.children = childLayouts.map((layout, i): TreemapNode => {
-        const child = sorted[i]!;
-        if (child.is_dir && child.children && child.children.length > 0) {
-          return computeTreemapLayout(
-            child,
-            layout.x,
-            layout.y,
-            layout.width,
-            layout.height
-          );
-        }
-        // 叶子节点 - 直接返回布局
-        return {
-          name: child.name,
-          path: child.path,
-          size: child.size,
-          x: layout.x,
-          y: layout.y,
-          width: layout.width,
-          height: layout.height,
-          color: CATEGORY_INFO[child.category]?.color ?? "#bdc3c7",
-          category: child.category,
-          risk_level: child.risk_level,
-          is_dir: child.is_dir,
-        };
-      });
-    }
-  }
+  const handleResetView = () => {
+    const inst = chartRef.current?.getEchartsInstance();
+    if (!inst) return;
+    inst.setOption({ series: [{ zoom: 1, center: [0.5, 0.5] }] });
+    inst.resize();
+  };
 
-  return result;
-}
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-sand-50/40">
+      {/* 深度导航栏 */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-moss-200/70 bg-white/70 px-3 py-2 backdrop-blur-md">
+        <button
+          type="button"
+          disabled={!canGoUp}
+          onClick={onNavigateUp}
+          className="rounded-lg border border-moss-200 bg-sand-50 px-2 py-1 text-xs font-medium text-moss-800 transition hover:bg-moss-50 disabled:cursor-not-allowed disabled:opacity-40"
+          title="返回上一级"
+        >
+          ← 上级
+        </button>
 
-/**
- * Squarify 算法核心实现
- *
- * 将一系列矩形排列到给定区域内，使每个矩形尽可能接近正方形。
- * 这是 Treemap 视觉美观的关键算法。
- */
-function squarify(
-  items: FileNode[],
-  x: number,
-  y: number,
-  width: number,
-  height: number
-): LayoutRect[] {
-  if (items.length === 0) return [];
+        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-xs">
+          {breadcrumb.map((node, index) => {
+            const isLast = index === breadcrumb.length - 1;
+            const label =
+              node.name ||
+              (node.path === "/" ? "/" : node.path.split("/").filter(Boolean).pop()) ||
+              node.path;
+            return (
+              <React.Fragment key={`${node.path}-${index}`}>
+                {index > 0 && <span className="shrink-0 text-ink-muted">/</span>}
+                <button
+                  type="button"
+                  disabled={isLast}
+                  onClick={() => onNavigateTo(index)}
+                  className={`max-w-[140px] shrink-0 truncate rounded-md px-1.5 py-0.5 transition ${
+                    isLast
+                      ? "font-semibold text-moss-800"
+                      : "text-ink-soft hover:bg-moss-50 hover:text-moss-700"
+                  }`}
+                  title={node.path}
+                >
+                  {label}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          {breadcrumb.length === 0 && (
+            <span className="text-ink-muted">等待扫描数据…</span>
+          )}
+        </nav>
 
-  const totalSize = items.reduce((sum, item) => sum + item.size, 0);
-  if (totalSize === 0) return items.map(() => ({ x, y, width: 0, height: 0 }));
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleZoom(1 / 1.25)}
+            className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
+            title="缩小"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => handleZoom(1.25)}
+            className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
+            title="放大"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={handleResetView}
+            className="rounded-lg border border-moss-200 bg-white px-2 py-1 text-xs text-moss-800 hover:bg-moss-50"
+            title="重置视图"
+          >
+            重置
+          </button>
+        </div>
+      </div>
 
-  const layouts: LayoutRect[] = [];
-  let remaining = items;
-  let currentX = x;
-  let currentY = y;
-  let currentWidth = width;
-  let currentHeight = height;
+      <div
+        className="relative min-h-0 flex-1"
+        onContextMenu={(e) => {
+          // 空白处也拦截浏览器默认菜单
+          e.preventDefault();
+        }}
+      >
+        {isLoading && !data && <TreemapLoading />}
 
-  while (remaining.length > 0) {
-    // 确定当前行的最佳分割点
-    const splitIndex = findBestSplit(remaining, currentWidth, currentHeight, totalSize);
+        {data && treeData && (
+          <ReactECharts
+            ref={chartRef}
+            option={option}
+            onEvents={onEvents}
+            style={{ height: "100%", width: "100%" }}
+            opts={{ renderer: "canvas" }}
+            notMerge
+            lazyUpdate
+          />
+        )}
 
-    // 取出当前行的项目
-    const rowItems = remaining.slice(0, splitIndex);
-    remaining = remaining.slice(splitIndex);
+        {!isLoading && !data && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
+            <div className="text-4xl opacity-50">📂</div>
+            <p className="text-sm">选择目录并开始扫描以查看空间分布</p>
+          </div>
+        )}
 
-    // 计算当前行各类数值
-    const rowSize = rowItems.reduce((sum, item) => sum + item.size, 0);
-    const rowRatio = rowSize / totalSize;
+        {isLoading && data && (
+          <div className="pointer-events-none absolute top-3 right-3 rounded-full bg-moss-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm">
+            扫描中
+          </div>
+        )}
 
-    if (currentWidth >= currentHeight) {
-      // 水平分割：横向排列
-      let xOffset = currentX;
-      for (const item of rowItems) {
-        layouts.push({
-          x: xOffset,
-          y: currentY,
-          width: currentWidth * (item.size / rowSize),
-          height: currentHeight * rowRatio,
-        });
-        xOffset += currentWidth * (item.size / rowSize);
-      }
-      currentY += currentHeight * rowRatio;
-      currentHeight -= currentHeight * rowRatio;
-    } else {
-      // 垂直分割：纵向排列
-      let yOffset = currentY;
-      for (const item of rowItems) {
-        layouts.push({
-          x: currentX,
-          y: yOffset,
-          width: currentWidth * rowRatio,
-          height: currentHeight * (item.size / rowSize),
-        });
-        yOffset += currentHeight * (item.size / rowSize);
-      }
-      currentX += currentWidth * rowRatio;
-      currentWidth -= currentWidth * rowRatio;
-    }
-
-    // 更新剩余项目的总面积比例
-    const remainingSize = remaining.reduce((sum, item) => sum + item.size, 0);
-    if (remainingSize === 0) break;
-  }
-
-  return layouts;
-}
-
-/**
- * 找到最佳分割点
- *
- * 逐项检查添加元素到当前行的长宽比，
- * 当长宽比开始变差时停止。
- */
-function findBestSplit(
-  items: FileNode[],
-  width: number,
-  height: number,
-  totalSize: number
-): number {
-  if (items.length <= 1) return items.length;
-
-  let bestIndex = 1;
-  let bestAspect = Infinity;
-
-  for (let i = 1; i <= items.length; i++) {
-    const rowItems = items.slice(0, i);
-    const rowSize = rowItems.reduce((sum, item) => sum + item.size, 0);
-    const rowRatio = rowSize / totalSize;
-
-    const rowLength = width >= height ? width : height;
-    const rowThickness = width >= height
-      ? height * rowRatio
-      : width * rowRatio;
-
-    // 计算行内所有矩形的最大长宽比
-    let maxAspect = 0;
-    for (const item of rowItems) {
-      const itemRatio = item.size / rowSize;
-      const itemLength = rowLength * itemRatio;
-
-      const aspect = itemLength > rowThickness
-        ? itemLength / rowThickness
-        : rowThickness / itemLength;
-
-      if (aspect > maxAspect) maxAspect = aspect;
-    }
-
-    // 如果长宽比开始变差，返回上一个索引
-    if (maxAspect > bestAspect) {
-      return bestIndex;
-    }
-
-    bestIndex = i;
-    bestAspect = maxAspect;
-  }
-
-  return bestIndex;
-}
+        {ctxMenu && (
+          <div
+            className="fixed z-50 min-w-[180px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="border-b border-moss-100 px-3 py-1.5">
+              <div className="max-w-[200px] truncate text-xs font-semibold text-ink">
+                {ctxMenu.node.name}
+              </div>
+              <div className="max-w-[200px] truncate font-mono text-[10px] text-ink-muted">
+                {formatSize(ctxMenu.node.size)}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+              onClick={handleReveal}
+            >
+              <span className="text-base">📂</span>
+              {typeof navigator !== "undefined" &&
+              /mac/i.test(navigator.platform || navigator.userAgent)
+                ? "在 Finder 中显示"
+                : "在资源管理器中显示"}
+            </button>
+            {ctxMenu.node.is_dir && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+                onClick={() => {
+                  const n = ctxMenu.node;
+                  setCtxMenu(null);
+                  onDrillInto(n);
+                }}
+              >
+                <span className="text-base">↘</span>
+                进入该目录
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default Treemap;

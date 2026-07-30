@@ -42,7 +42,7 @@ pub struct FileNode {
 // ─── 文件分类 ───────────────────────────────────────────────────────────────────
 
 /// 文件分类 - 标识文件/目录在 macOS 中的用途
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum FileCategory {
     /// 系统文件 - macOS 系统核心文件，删除可能导致系统不稳定
     System,
@@ -232,6 +232,54 @@ pub struct ScanResult {
     pub total_dirs: u64,
     /// 各分类汇总
     pub category_summary: Vec<CategorySummary>,
+}
+
+// ─── 扫描缓存 ───────────────────────────────────────────────────────────────────
+
+/// 磁盘上持久化的扫描缓存条目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedScan {
+    /// 缓存格式版本
+    pub version: u32,
+    /// 缓存写入时间（Unix 秒）
+    pub cached_at: i64,
+    /// 扫描结果快照
+    pub result: ScanResult,
+    /// 是否未扫完（断点续扫）
+    #[serde(default)]
+    pub incomplete: bool,
+    /// 尚未扫描的顶级目录路径
+    #[serde(default)]
+    pub pending_paths: Vec<String>,
+    /// 已完成的顶级目录路径
+    #[serde(default)]
+    pub completed_paths: Vec<String>,
+    /// 原始扫描请求（续扫用）
+    #[serde(default)]
+    pub request: Option<ScanRequest>,
+    /// 暂停时的聚焦路径
+    #[serde(default)]
+    pub focus_path: Option<String>,
+}
+
+/// 缓存列表元信息（不含完整树，供首页展示）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScanCacheMeta {
+    /// 扫描根路径
+    pub root_path: String,
+    /// 缓存写入时间（Unix 秒）
+    pub cached_at: i64,
+    /// 根节点总大小
+    pub total_size: u64,
+    /// 文件数
+    pub total_files: u64,
+    /// 目录数
+    pub total_dirs: u64,
+    /// 扫描耗时（毫秒）
+    pub elapsed_ms: u64,
+    /// 是否未完成
+    #[serde(default)]
+    pub incomplete: bool,
 }
 
 // ─── 搜索相关 ───────────────────────────────────────────────────────────────────

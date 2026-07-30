@@ -1,19 +1,27 @@
 //! Dashboard — 清新自然首页概览
 
 import React from "react";
-import type { CategorySummary, SystemOverview } from "../types";
-import { CATEGORY_INFO, formatSize } from "../types";
+import type { CategorySummary, ScanCacheMeta, SystemOverview } from "../types";
+import { CATEGORY_INFO, formatDate, formatSize } from "../types";
 
 interface DashboardProps {
   overview: SystemOverview | null;
+  cacheMeta: ScanCacheMeta | null;
   onStartScan: () => void;
   onQuickScan: () => void;
+  onOpenCache: () => void;
+  onClearCache: () => void;
+  onResumeScan: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   overview,
+  cacheMeta,
   onStartScan,
   onQuickScan,
+  onOpenCache,
+  onClearCache,
+  onResumeScan,
 }) => {
   if (!overview) {
     return (
@@ -52,6 +60,49 @@ const Dashboard: React.FC<DashboardProps> = ({
         />
       </div>
 
+      {cacheMeta && (
+        <div className="mb-8 max-w-4xl rounded-2xl border border-moss-200/80 bg-white/80 p-5 shadow-sm backdrop-blur-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                本地扫描缓存
+              </div>
+              <div className="mt-1 font-mono text-sm text-ink">{cacheMeta.root_path}</div>
+              <div className="mt-1 text-xs text-ink-soft">
+                {formatDate(cacheMeta.cached_at)} · {formatSize(cacheMeta.total_size)} ·{" "}
+                {cacheMeta.total_files.toLocaleString()} 文件
+                {cacheMeta.incomplete ? " · 未扫完" : ""}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {cacheMeta.incomplete ? (
+                <button
+                  type="button"
+                  onClick={onResumeScan}
+                  className="rounded-xl bg-moss-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-moss-500"
+                >
+                  继续扫描
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={onOpenCache}
+                className="rounded-xl border border-moss-300 bg-white px-4 py-2 text-sm font-medium text-moss-800 transition hover:bg-moss-50"
+              >
+                打开缓存结果
+              </button>
+              <button
+                type="button"
+                onClick={onClearCache}
+                className="rounded-xl border border-moss-200 bg-white px-4 py-2 text-sm text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
+              >
+                清除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex flex-wrap gap-3">
         <button
           type="button"
@@ -65,7 +116,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={onQuickScan}
           className="rounded-xl border border-moss-300 bg-white/70 px-5 py-2.5 text-sm font-medium text-moss-800 transition hover:border-moss-400 hover:bg-moss-50"
         >
-          快速扫描用户目录
+          扫描用户主目录
         </button>
       </div>
 
@@ -98,39 +149,36 @@ const StatCard: React.FC<{
 );
 
 const CategoryBarChart: React.FC<{ summary: CategorySummary[] }> = ({ summary }) => {
-  const maxSize = Math.max(...summary.map((s) => s.total_size), 1);
+  const sorted = [...summary].sort((a, b) => b.total_size - a.total_size);
+  const max = sorted[0]?.total_size || 1;
 
   return (
     <div>
-      <div className="mb-3 text-sm font-semibold text-moss-800">存储空间分类</div>
-      <div className="flex flex-col gap-2">
-        {summary
-          .filter((s) => s.total_size > 0)
-          .sort((a, b) => b.total_size - a.total_size)
-          .map((s) => {
-            const info = CATEGORY_INFO[s.category];
-            const barWidth = (s.total_size / maxSize) * 100;
-            return (
-              <div key={s.category} className="flex items-center gap-2">
-                <div
-                  className="h-5 w-1.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: info?.color }}
-                />
-                <div className="w-20 shrink-0 text-xs text-ink-soft">
-                  {info?.label ?? s.category}
-                </div>
-                <div className="h-5 flex-1 overflow-hidden rounded-md bg-moss-50">
-                  <div
-                    className="h-full rounded-md transition-[width] duration-500"
-                    style={{ width: `${barWidth}%`, backgroundColor: info?.color }}
-                  />
-                </div>
-                <div className="w-16 shrink-0 text-right font-mono text-[11px] text-ink-muted">
+      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">分类占用</h2>
+      <div className="flex flex-col gap-3">
+        {sorted.map((s) => {
+          const info = CATEGORY_INFO[s.category];
+          const pct = Math.max(2, (s.total_size / max) * 100);
+          return (
+            <div key={s.category}>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="font-medium text-ink">{info?.label ?? s.category}</span>
+                <span className="font-mono text-ink-muted">
                   {formatSize(s.total_size)}
-                </div>
+                </span>
               </div>
-            );
-          })}
+              <div className="h-2 overflow-hidden rounded-full bg-moss-100">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: info?.color ?? "#94a3b8",
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
