@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useI18nStore } from "./store";
+import { useI18nStore } from "../stores/i18n.store";
 
 /**
  * 轻量 Provider：仅负责在 locale 变化时同步 <html lang> 属性。

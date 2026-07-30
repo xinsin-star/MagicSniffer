@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Locale } from "./types";
-import zhCN from "../locales/zh-CN.json";
-import en from "../locales/en.json";
+import type { Locale } from "../i18n/types";
+import zhCN from "../i18n/locales/zh-CN.json";
+import en from "../i18n/locales/en.json";
 
 const messages: Record<Locale, Record<string, unknown>> = {
   "zh-CN": zhCN,

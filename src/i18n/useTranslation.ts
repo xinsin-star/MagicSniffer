@@ -1,4 +1,4 @@
-import { useI18nStore } from "./store";
+import { useI18nStore } from "../stores/i18n.store";
 
 /**
  * i18n hook — 返回 { t, locale, setLocale }
