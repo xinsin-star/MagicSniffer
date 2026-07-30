@@ -138,3 +138,8 @@ export async function onScanPreview(
 export async function revealInFileManager(path: string, lang?: string): Promise<void> {
   return invoke("reveal_in_file_manager", { path, lang: lang ?? null });
 }
+
+/** 语言切换时更新系统托盘菜单 */
+export async function updateTrayMenu(lang?: string): Promise<void> {
+  return invoke("update_tray_menu", { lang: lang ?? null });
+}

@@ -389,6 +389,22 @@ pub async fn reveal_in_file_manager(path: String, lang: Option<String>) -> Resul
     Ok(())
 }
 
+// ─── 系统托盘 ──────────────────────────────────────────────────────────────────
+
+/// 语言切换时更新托盘菜单文本
+#[tauri::command]
+pub async fn update_tray_menu(lang: Option<String>, app_handle: AppHandle) -> Result<(), String> {
+    let lang = lang.as_deref().unwrap_or("zh-CN");
+    let tray = app_handle
+        .tray_by_id(crate::TRAY_ID)
+        .ok_or("托盘图标未初始化")?;
+    let new_menu = crate::build_tray_menu(&app_handle, lang)
+        .map_err(|e| format!("构建托盘菜单失败: {e}"))?;
+    tray.set_menu(Some(new_menu))
+        .map_err(|e| format!("更新托盘菜单失败: {e}"))?;
+    Ok(())
+}
+
 // ─── 辅助函数 ───────────────────────────────────────────────────────────────────
 
 /// 获取 home 目录路径

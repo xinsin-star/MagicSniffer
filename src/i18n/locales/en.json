@@ -114,5 +114,16 @@
     "paused": "Scan paused",
     "done": "Scan complete",
     "default": "Scanning…"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "languageDesc": "Switch interface language",
+    "zhCN": "中文",
+    "en": "English",
+    "close": "Close"
+  },
+  "menu": {
+    "settings": "Settings…"
   }
 }

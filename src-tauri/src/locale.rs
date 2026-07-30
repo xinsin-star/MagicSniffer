@@ -84,6 +84,10 @@ fn tr_zh(key: &str) -> String {
         "phase.paused" => "扫描已暂停".into(),
         "phase.done" => "扫描完成".into(),
 
+        // ── 系统托盘 ──
+        "tray.show" => "显示 MagicSniffer".into(),
+        "tray.quit" => "退出".into(),
+
         _ => key.into(),
     }
 }
@@ -156,6 +160,9 @@ fn tr_en(key: &str) -> String {
         "phase.building" => "Building final results...".into(),
         "phase.paused" => "Scan paused".into(),
         "phase.done" => "Scan complete".into(),
+
+        "tray.show" => "Show MagicSniffer".into(),
+        "tray.quit" => "Quit".into(),
 
         _ => key.into(),
     }

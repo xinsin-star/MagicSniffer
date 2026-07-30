@@ -6,6 +6,7 @@ import Treemap from "./components/Treemap";
 import SearchPanel from "./components/SearchPanel";
 import CategoryLegend from "./components/CategoryLegend";
 import FileDetailPanel from "./components/FileDetailPanel";
+import SettingsModal from "./components/SettingsModal";
 import {
   getSystemOverview,
   validateScanPath,
@@ -18,6 +19,7 @@ import {
   clearScanCache,
   setScanPriority,
   stopScan,
+  updateTrayMenu,
 } from "./hooks/useTauriCommand";
 import type {
   FileNode,
@@ -87,6 +89,7 @@ const App: React.FC = () => {
   const [cacheMeta, setCacheMeta] = useState<ScanCacheMeta | null>(null);
   const [incomplete, setIncomplete] = useState(false);
   const [cacheList, setCacheList] = useState<ScanCacheMeta[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scanningRef = React.useRef(false);
   const leaveAfterStopRef = React.useRef(false);
 
@@ -168,9 +171,10 @@ const App: React.FC = () => {
     }
   }, [cacheMeta, refreshCacheList]);
 
-  // 动态设置页面标题
+  // 动态设置页面标题 + 同步托盘菜单
   useEffect(() => {
     document.title = t("site.title");
+    updateTrayMenu(locale).catch(() => {});
   }, [locale, t]);
 
   useEffect(() => {
@@ -385,23 +389,6 @@ const App: React.FC = () => {
     }
   }, [cacheMeta, scanPath, applyCached, refreshCacheList]);
 
-  const handleStopAndLeave = useCallback(async () => {
-    if (scanningRef.current) {
-      leaveAfterStopRef.current = true;
-      try {
-        await stopScan();
-      } catch (e) {
-        console.warn("停止扫描失败:", e);
-        leaveAfterStopRef.current = false;
-      }
-      return;
-    }
-    setAppState("dashboard");
-    setLivePreview(null);
-    setNavStack([]);
-    void setScanPriority(null);
-  }, []);
-
   const handleClearAllCache = useCallback(async () => {
     try {
       if (scanningRef.current) await stopScan();
@@ -575,6 +562,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <Toolbar
         appState={appState}
         scanPath={scanPath}
@@ -587,10 +575,10 @@ const App: React.FC = () => {
         onStartScan={handleStartScan}
         onResumeScan={handleResumeScan}
         onClearCache={handleClearAllCache}
-        onGoDashboard={handleStopAndLeave}
         t={t}
         locale={locale}
         setLocale={setLocale}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -683,10 +671,10 @@ interface ToolbarProps {
   onStartScan: () => void;
   onResumeScan: () => void;
   onClearCache: () => void;
-  onGoDashboard: () => void;
   t: (key: string, params?: Record<string, string | number>) => string;
   locale: string;
   setLocale: (locale: "zh-CN" | "en") => void;
+  onOpenSettings: () => void;
 }
 
 const Toolbar: React.FC<ToolbarProps> = ({
@@ -701,19 +689,52 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onStartScan,
   onResumeScan,
   onClearCache,
-  onGoDashboard,
   t,
   locale,
   setLocale,
-}) => (
+  onOpenSettings,
+}) => {
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menuOpen]);
+
+  return (
   <header className="flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
-    <button
-      type="button"
-      onClick={onGoDashboard}
-      className="font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
-    >
-      {t("app.title")}
-    </button>
+    {/* App title + dropdown */}
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        className="flex items-center gap-1 font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
+      >
+        {t("app.title")}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mt-0.5 text-moss-400">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {menuOpen && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+            onClick={() => { setMenuOpen(false); onOpenSettings(); }}
+          >
+            <span className="text-base">⚙</span>
+            {t("menu.settings")}
+          </button>
+        </div>
+      )}
+    </div>
 
     {overview && (
       <span className="hidden font-mono text-xs text-ink-muted sm:inline">
@@ -805,6 +826,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
       </button>
     </div>
   </header>
-);
+  );
+};
 
 export default App;
