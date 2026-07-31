@@ -20,6 +20,8 @@ import {
   setScanPriority,
   stopScan,
   updateTrayMenu,
+  getDiskMounts,
+  getPhysicalDiskHealth,
 } from "./hooks/useTauriCommand";
 import type {
   FileNode,
@@ -31,6 +33,8 @@ import type {
   SearchResultItem,
   ScanCacheMeta,
   CachedScan,
+  DiskMountInfo,
+  PhysicalDiskHealth,
 } from "./types";
 import { formatSize, formatDate } from "./types";
 import { useTranslation } from "./i18n/useTranslation";
@@ -89,6 +93,8 @@ const App: React.FC = () => {
   const [cacheMeta, setCacheMeta] = useState<ScanCacheMeta | null>(null);
   const [incomplete, setIncomplete] = useState(false);
   const [cacheList, setCacheList] = useState<ScanCacheMeta[]>([]);
+  const [diskMounts, setDiskMounts] = useState<DiskMountInfo[]>([]);
+  const [diskHealth, setDiskHealth] = useState<PhysicalDiskHealth[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scanningRef = React.useRef(false);
   const leaveAfterStopRef = React.useRef(false);
@@ -178,11 +184,27 @@ const App: React.FC = () => {
   }, [locale, t]);
 
   useEffect(() => {
+    let cancelled = false;
     const loadOverview = async () => {
       try {
-        setOverview(await getSystemOverview(locale));
+        const [ov, mounts, health] = await Promise.all([
+          getSystemOverview(locale),
+          getDiskMounts(locale).catch((e) => {
+            console.error("获取磁盘挂载信息失败:", e);
+            return [] as DiskMountInfo[];
+          }),
+          getPhysicalDiskHealth(locale).catch((e) => {
+            console.error("获取物理磁盘健康度失败:", e);
+            return [] as PhysicalDiskHealth[];
+          }),
+        ]);
+        if (cancelled) return;
+        setOverview(ov);
+        setDiskMounts(mounts);
+        setDiskHealth(health);
       } catch (e) {
         console.warn("加载系统概览失败（非 Tauri 环境？）:", e);
+        if (cancelled) return;
         setOverview({
           total_space: 500_000_000_000,
           used_space: 300_000_000_000,
@@ -193,7 +215,8 @@ const App: React.FC = () => {
       }
     };
     loadOverview();
-  }, []);
+    return () => { cancelled = true; };
+  }, [locale]);
 
   // 启动时恢复最近一次扫描缓存 + 加载缓存列表
   useEffect(() => {
@@ -600,6 +623,8 @@ const App: React.FC = () => {
           <Dashboard
             overview={overview}
             cacheList={cacheList}
+            diskMounts={diskMounts}
+            diskHealth={diskHealth}
             onStartScan={handleStartScan}
             onQuickScan={handleQuickScan}
             onOpenCacheEntry={handleOpenCacheEntry}

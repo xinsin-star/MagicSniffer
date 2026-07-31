@@ -1,13 +1,17 @@
 //! Dashboard — 清新自然首页概览
 
 import React from "react";
-import type { CategorySummary, ScanCacheMeta, SystemOverview } from "../types";
+import type { CategorySummary, DiskMountInfo, PhysicalDiskHealth, ScanCacheMeta, SystemOverview } from "../types";
 import { CATEGORY_COLORS, formatDate, formatSize } from "../types";
 import { useTranslation } from "../i18n/useTranslation";
+import DiskMountChart from "./DiskMountChart";
+import DiskHealthPanel from "./DiskHealthPanel";
 
 interface DashboardProps {
   overview: SystemOverview | null;
   cacheList: ScanCacheMeta[];
+  diskMounts: DiskMountInfo[];
+  diskHealth: PhysicalDiskHealth[];
   onStartScan: () => void;
   onQuickScan: () => void;
   onOpenCacheEntry: (rootPath: string) => void;
@@ -19,6 +23,8 @@ interface DashboardProps {
 const Dashboard: React.FC<DashboardProps> = ({
   overview,
   cacheList,
+  diskMounts,
+  diskHealth,
   onStartScan,
   onQuickScan,
   onOpenCacheEntry,
@@ -64,6 +70,18 @@ const Dashboard: React.FC<DashboardProps> = ({
           accent
         />
       </div>
+
+      {diskHealth.length > 0 && (
+        <div className="mb-8 max-w-4xl">
+          <DiskHealthPanel disks={diskHealth} />
+        </div>
+      )}
+
+      {diskMounts.length > 0 && (
+        <div className="mb-8 max-w-4xl">
+          <DiskMountChart mounts={diskMounts} />
+        </div>
+      )}
 
       {cacheList.length > 0 && (
         <div className="mb-8 max-w-4xl">
