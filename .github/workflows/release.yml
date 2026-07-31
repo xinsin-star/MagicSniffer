@@ -6,7 +6,7 @@ on:
       - release
 
 jobs:
-  # ─── macOS 构建 ──────────────────────────────────────────────────────────────
+  # ─── macOS Universal 构建 (arm64 + x86_64) ────────────────────────────────
   build-macos:
     runs-on: macos-latest
     steps:
@@ -20,11 +20,33 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add Rust targets (universal)
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
       - name: Install frontend deps
         run: bun install
 
-      - name: Build Tauri (macOS)
-        run: bun run tauri build
+      - name: Build frontend
+        run: bun run build
+
+      - name: Build Rust (arm64)
+        working-directory: src-tauri
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Build Rust (x86_64)
+        working-directory: src-tauri
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Create universal binary
+        run: |
+          mkdir -p src-tauri/target/release
+          lipo -create \
+            src-tauri/target/aarch64-apple-darwin/release/magicsniffer \
+            src-tauri/target/x86_64-apple-darwin/release/magicsniffer \
+            -output src-tauri/target/release/magicsniffer
+
+      - name: Bundle universal DMG
+        run: bun run tauri build --bundles dmg
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -39,14 +61,6 @@ jobs:
           path: src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: warn
 
-      - name: Upload App artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-app
-          path: src-tauri/target/release/bundle/macos/*.app
-          if-no-files-found: warn
-
-      # 读取版本号供后续 job 使用
       - name: Read version
         id: version
         run: |
@@ -149,7 +163,7 @@ jobs:
             ## MagicSniffer ${{ steps.version.outputs.tag }}
 
             构建产物：
-            - `MagicSniffer_${{ steps.version.outputs.version }}_x64.dmg` — macOS 安装包
+            - `MagicSniffer_${{ steps.version.outputs.version }}_universal.dmg` — macOS 通用安装包（Intel + Apple Silicon）
             - `MagicSniffer_${{ steps.version.outputs.version }}_x64.msi` — Windows 安装包
 
             > 发布说明待补充。
