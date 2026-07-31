@@ -22,6 +22,7 @@ import {
   updateTrayMenu,
   getDiskMounts,
   getPhysicalDiskHealth,
+  checkSmartctl,
 } from "./hooks/useTauriCommand";
 import type {
   FileNode,
@@ -35,6 +36,7 @@ import type {
   CachedScan,
   DiskMountInfo,
   PhysicalDiskHealth,
+  SmartctlStatus,
 } from "./types";
 import { formatSize, formatDate } from "./types";
 import { useTranslation } from "./i18n/useTranslation";
@@ -95,6 +97,7 @@ const App: React.FC = () => {
   const [cacheList, setCacheList] = useState<ScanCacheMeta[]>([]);
   const [diskMounts, setDiskMounts] = useState<DiskMountInfo[]>([]);
   const [diskHealth, setDiskHealth] = useState<PhysicalDiskHealth[]>([]);
+  const [smartctlStatus, setSmartctlStatus] = useState<SmartctlStatus | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scanningRef = React.useRef(false);
   const leaveAfterStopRef = React.useRef(false);
@@ -202,6 +205,11 @@ const App: React.FC = () => {
         setOverview(ov);
         setDiskMounts(mounts);
         setDiskHealth(health);
+
+        // 异步检查 smartctl 可用性（不阻塞页面渲染）
+        checkSmartctl(locale)
+          .then(setSmartctlStatus)
+          .catch(() => setSmartctlStatus({ available: false }));
       } catch (e) {
         console.warn("加载系统概览失败（非 Tauri 环境？）:", e);
         if (cancelled) return;
@@ -598,7 +606,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} smartctl={smartctlStatus} />
       <Toolbar
         appState={appState}
         scanPath={scanPath}

@@ -1,13 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "../i18n/useTranslation";
 import type { Locale } from "../i18n/types";
+import type { SmartctlStatus } from "../types";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  smartctl: SmartctlStatus | null;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }) => {
   const { t, locale, setLocale } = useTranslation();
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -73,6 +75,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose }) => {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Disk Health (smartctl) */}
+        <div className="mb-4 rounded-xl border border-moss-200/80 bg-moss-50/70 p-4">
+          <div className="mb-1 text-sm font-medium text-ink">
+            {t("settings.diskHealth")}
+          </div>
+          {smartctl === null ? (
+            <p className="text-xs text-ink-muted">{t("settings.checking")}</p>
+          ) : smartctl.available ? (
+            <div>
+              <p className="text-xs text-ink-soft">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1" />
+                smartmontools {smartctl.version} {t("settings.smartctlInstalled")}
+              </p>
+              <p className="mt-1 text-[11px] text-ink-muted">
+                {t("settings.smartctlDataDesc")}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-xs text-ink-soft">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 mr-1" />
+                {t("settings.smartctlNotInstalled")}
+              </p>
+              <p className="mt-1 text-[11px] text-ink-muted">
+                {t("settings.smartctlInstallHint")}
+              </p>
+              <code className="mt-1.5 block select-all rounded-md bg-moss-100 px-2 py-1 font-mono text-[11px] text-moss-800">
+                brew install smartmontools
+              </code>
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex justify-end">
