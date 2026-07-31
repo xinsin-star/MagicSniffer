@@ -101,6 +101,7 @@ pub fn run() {
             commands::update_tray_menu,
             commands::get_disk_mounts,
             commands::get_physical_disk_health,
+            commands::check_smartctl,
         ])
         .run(tauri::generate_context!())
         .expect("启动 MagicSniffer 失败");

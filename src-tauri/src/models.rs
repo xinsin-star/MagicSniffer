@@ -319,6 +319,49 @@ pub struct DiskIOStats {
     pub errors_write: u64,
 }
 
+/// NVMe SMART 详细健康数据
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NvmeSmartData {
+    /// 严重警告 (0 = 正常)
+    pub critical_warning: u8,
+    /// 当前温度 (摄氏度)
+    pub temperature_celsius: u32,
+    /// 剩余备用块百分比
+    pub available_spare: u32,
+    /// 备用块阈值百分比
+    pub available_spare_threshold: u32,
+    /// 已用寿命百分比
+    pub percentage_used: u32,
+    /// 读取数据量 (字节)
+    pub data_units_read_bytes: u64,
+    /// 写入数据量 (字节)
+    pub data_units_written_bytes: u64,
+    /// 主机读命令数
+    pub host_read_commands: u64,
+    /// 主机写命令数
+    pub host_write_commands: u64,
+    /// 控制器忙碌时间 (分钟)
+    pub controller_busy_time: u64,
+    /// 通电循环次数
+    pub power_cycles: u64,
+    /// 通电小时数
+    pub power_on_hours: u64,
+    /// 异常断电次数
+    pub unsafe_shutdowns: u64,
+    /// 介质与数据完整性错误
+    pub media_errors: u64,
+    /// 错误信息日志条目
+    pub error_log_entries: u64,
+}
+
+/// smartctl 可用性检查结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartctlStatus {
+    pub available: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+}
+
 /// 物理磁盘上的卷引用
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskVolumeRef {
@@ -358,6 +401,9 @@ pub struct PhysicalDiskHealth {
     /// I/O 统计
     #[serde(skip_serializing_if = "Option::is_none")]
     pub io_stats: Option<DiskIOStats>,
+    /// NVMe SMART 详细数据 (来自 smartctl)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nvme_smart: Option<NvmeSmartData>,
     /// 该物理磁盘上的卷列表
     pub volumes: Vec<DiskVolumeRef>,
 }
