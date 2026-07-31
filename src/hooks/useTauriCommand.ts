@@ -15,6 +15,8 @@ import type {
   SearchResult,
   RiskDetail,
   BatchRiskResult,
+  DiskMountInfo,
+  PhysicalDiskHealth,
 } from "../types";
 
 /**
@@ -142,4 +144,18 @@ export async function revealInFileManager(path: string, lang?: string): Promise<
 /** 语言切换时更新系统托盘菜单 */
 export async function updateTrayMenu(lang?: string): Promise<void> {
   return invoke("update_tray_menu", { lang: lang ?? null });
+}
+
+/** 获取所有挂载点信息 */
+export async function getDiskMounts(lang?: string): Promise<DiskMountInfo[]> {
+  return invoke<DiskMountInfo[]>("get_disk_mounts", { lang: lang ?? null });
+}
+
+/** 获取物理磁盘健康度信息 */
+export async function getPhysicalDiskHealth(
+  lang?: string,
+): Promise<PhysicalDiskHealth[]> {
+  return invoke<PhysicalDiskHealth[]>("get_physical_disk_health", {
+    lang: lang ?? null,
+  });
 }

@@ -199,6 +199,60 @@ export interface ScanCacheMeta {
   incomplete?: boolean;
 }
 
+// ─── 磁盘挂载与健康度 ──────────────────────────────────────────────────────────
+
+export interface SmartAttribute {
+  key: string;
+  raw_value: number;
+  label?: string;
+}
+
+/** 单个磁盘挂载点信息（仅容量 + 挂载信息） */
+export interface DiskMountInfo {
+  mount_point: string;
+  name: string;
+  file_system: string;
+  /** "SSD" / "HDD" / "Unknown" */
+  kind: string;
+  total_space: number;
+  available_space: number;
+  is_removable: boolean;
+}
+
+/** 物理磁盘 I/O 统计 */
+export interface DiskIOStats {
+  bytes_read: number;
+  bytes_written: number;
+  operations_read: number;
+  operations_written: number;
+  errors_read: number;
+  errors_write: number;
+}
+
+/** 物理磁盘上的卷引用 */
+export interface DiskVolumeRef {
+  mount_point: string;
+  bsd_name: string;
+  size: number;
+  file_system: string;
+}
+
+/** 物理磁盘健康度信息 */
+export interface PhysicalDiskHealth {
+  device_id: string;
+  model: string;
+  serial?: string;
+  firmware?: string;
+  capacity: number;
+  medium_type: string;
+  protocol: string;
+  smart_status?: string;
+  is_internal: boolean;
+  trim_support?: boolean;
+  io_stats?: DiskIOStats;
+  volumes: DiskVolumeRef[];
+}
+
 // ─── 搜索 ───────────────────────────────────────────────────────────────────────
 
 /** 搜索请求参数 - 对应 Rust 的 SearchRequest */
