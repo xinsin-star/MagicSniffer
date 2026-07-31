@@ -282,6 +282,86 @@ pub struct ScanCacheMeta {
     pub incomplete: bool,
 }
 
+// ─── 磁盘挂载与健康度 ───────────────────────────────────────────────────────────
+
+/// 单个 SMART 属性键值对
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmartAttribute {
+    pub key: String,
+    pub raw_value: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+/// 单个磁盘挂载点信息（仅容量 + 挂载信息，不包含健康度）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskMountInfo {
+    pub mount_point: String,
+    pub name: String,
+    pub file_system: String,
+    /// "SSD" / "HDD" / "Unknown"
+    pub kind: String,
+    pub total_space: u64,
+    pub available_space: u64,
+    pub is_removable: bool,
+}
+
+// ─── 物理磁盘健康度 ─────────────────────────────────────────────────────────────
+
+/// 物理磁盘 I/O 统计
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskIOStats {
+    pub bytes_read: u64,
+    pub bytes_written: u64,
+    pub operations_read: u64,
+    pub operations_written: u64,
+    pub errors_read: u64,
+    pub errors_write: u64,
+}
+
+/// 物理磁盘上的卷引用
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskVolumeRef {
+    pub mount_point: String,
+    pub bsd_name: String,
+    pub size: u64,
+    pub file_system: String,
+}
+
+/// 物理磁盘健康度信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhysicalDiskHealth {
+    /// BSD 名称，如 "disk0"
+    pub device_id: String,
+    /// 磁盘型号，如 "APPLE SSD AP0512Z"
+    pub model: String,
+    /// 序列号
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub serial: Option<String>,
+    /// 固件版本
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub firmware: Option<String>,
+    /// 物理容量（字节）
+    pub capacity: u64,
+    /// "SSD" / "HDD"
+    pub medium_type: String,
+    /// 接口协议，如 "Apple Fabric" / "PCI-Express" / "SATA"
+    pub protocol: String,
+    /// SMART 状态: "Verified" / "Failing" / None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub smart_status: Option<String>,
+    /// 是否内置磁盘
+    pub is_internal: bool,
+    /// 是否支持 TRIM
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trim_support: Option<bool>,
+    /// I/O 统计
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub io_stats: Option<DiskIOStats>,
+    /// 该物理磁盘上的卷列表
+    pub volumes: Vec<DiskVolumeRef>,
+}
+
 // ─── 搜索相关 ───────────────────────────────────────────────────────────────────
 
 /// 搜索请求

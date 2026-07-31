@@ -50,6 +50,8 @@ env_logger = "0.11"
 sha2 = "0.10"
 hex = "0.4"
 
+# plist - 用于解析 macOS diskutil 输出获取磁盘健康度
+plist = "1"
 # 正则表达式 - 用于文件搜索模式匹配
 regex = "1"
 
@@ -60,3 +62,4 @@ walkdir = "2.5.0"
 [target.'cfg(target_os = "macos")'.dependencies]
 # macOS 特定的系统信息获取
 core-foundation = "0.10"
+libc = "0.2"

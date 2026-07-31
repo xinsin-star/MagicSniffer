@@ -389,6 +389,425 @@ pub async fn reveal_in_file_manager(path: String, lang: Option<String>) -> Resul
     Ok(())
 }
 
+// ─── 磁盘挂载与健康度 ──────────────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct DiskUtilInfo {
+    #[serde(default)]
+    solid_state: Option<bool>,
+    #[serde(default)]
+    bus_protocol: Option<String>,
+    /// APFS 卷已用空间（字节），用于精确的每卷已用计算
+    #[serde(default)]
+    capacity_in_use: Option<u64>,
+}
+
+fn parse_diskutil_plist(mount_point: &str) -> Option<DiskUtilInfo> {
+    let output = std::process::Command::new("diskutil")
+        .args(["info", "-plist", mount_point])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    plist::from_bytes::<DiskUtilInfo>(&output.stdout).ok()
+}
+
+/// 获取所有挂载点及其磁盘健康度信息
+#[tauri::command]
+pub async fn get_disk_mounts(lang: Option<String>) -> Result<Vec<DiskMountInfo>, String> {
+    let _lang = lang.as_deref().unwrap_or("zh-CN");
+
+    #[cfg(target_os = "macos")]
+    let mounts = enumerate_macos_mounts();
+    #[cfg(not(target_os = "macos"))]
+    let mounts = enumerate_sysinfo_mounts();
+
+    log::info!("get_disk_mounts: 返回 {} 个挂载点", mounts.len());
+    Ok(mounts)
+}
+
+/// 非 macOS 平台：使用 sysinfo 枚举磁盘
+#[cfg(not(target_os = "macos"))]
+fn enumerate_sysinfo_mounts() -> Vec<DiskMountInfo> {
+    use sysinfo::Disks;
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut mounts: Vec<DiskMountInfo> = Vec::new();
+
+    for disk in disks.iter() {
+        let total = disk.total_space();
+        let mount_str = disk.mount_point().to_string_lossy().to_string();
+        let fs = disk.file_system().to_string_lossy().to_string();
+
+        if mount_str.starts_with("/dev") || fs == "devfs" || fs.is_empty() {
+            continue;
+        }
+        if total < 100_000_000 {
+            continue;
+        }
+
+        let kind = match disk.kind() {
+            sysinfo::DiskKind::SSD => "SSD".to_string(),
+            sysinfo::DiskKind::HDD => "HDD".to_string(),
+            _ => "Unknown".to_string(),
+        };
+
+        mounts.push(DiskMountInfo {
+            mount_point: mount_str.clone(),
+            name: disk.name().to_string_lossy().to_string(),
+            file_system: fs,
+            kind,
+            total_space: total,
+            available_space: disk.available_space(),
+            is_removable: disk.is_removable(),
+        });
+    }
+
+    mounts
+}
+
+/// macOS: 使用 getfsstat 获取完整的挂载点列表（包括所有 APFS 卷）
+#[cfg(target_os = "macos")]
+fn enumerate_macos_mounts() -> Vec<DiskMountInfo> {
+    let pseudo_fs: &[&str] = &[
+        "devfs", "autofs", "procfs", "fdesc", "kernfs", "nullfs",
+        "synthfs", "nfs", "smbfs", "afpfs", "webdav", "cifs",
+    ];
+
+    let mut mounts: Vec<DiskMountInfo> = Vec::new();
+    let fs_entries = unsafe { get_macos_filesystems() };
+
+    for (mount_point, fs_type, total, available, _device) in &fs_entries {
+        if pseudo_fs.contains(&fs_type.as_str()) {
+            continue;
+        }
+        if *total == 0 {
+            continue;
+        }
+
+        // APFS: 使用 diskutil info 获取每卷 CapacityInUse 以精确计算
+        let du_info = parse_diskutil_plist(mount_point);
+        let (total_space, available_space) =
+            if let Some(ref info) = du_info {
+                if let Some(cap_in_use) = info.capacity_in_use {
+                    (cap_in_use + *available, *available)
+                } else {
+                    (*total, *available)
+                }
+            } else {
+                (*total, *available)
+            };
+
+        let kind = du_info
+            .as_ref()
+            .and_then(|i| i.solid_state)
+            .map(|ss| if ss { "SSD" } else { "HDD" })
+            .unwrap_or("Unknown")
+            .to_string();
+
+        let is_removable = mount_point.starts_with("/Volumes/")
+            && mount_point != "/"
+            && !mount_point.starts_with("/System/Volumes/");
+
+        mounts.push(DiskMountInfo {
+            mount_point: mount_point.clone(),
+            name: mount_point.clone(),
+            file_system: fs_type.clone(),
+            kind,
+            total_space,
+            available_space,
+            is_removable,
+        });
+    }
+
+    mounts
+}
+
+/// macOS: 通过 libc::getfsstat 获取所有挂载文件系统的信息
+#[cfg(target_os = "macos")]
+unsafe fn get_macos_filesystems() -> Vec<(String, String, u64, u64, String)> {
+    let mut entries = Vec::new();
+
+    let count = libc::getfsstat(std::ptr::null_mut(), 0, libc::MNT_NOWAIT);
+    if count <= 0 {
+        log::warn!("getfsstat 获取文件系统数量失败: {}", count);
+        return entries;
+    }
+
+    let mut buf: Vec<libc::statfs> = Vec::with_capacity(count as usize);
+    let buf_bytes = buf.capacity() * std::mem::size_of::<libc::statfs>();
+
+    let actual = libc::getfsstat(
+        buf.as_mut_ptr(),
+        buf_bytes as i32,
+        libc::MNT_NOWAIT,
+    );
+    if actual <= 0 {
+        log::warn!("getfsstat 获取文件系统数据失败: {}", actual);
+        return entries;
+    }
+    buf.set_len(actual as usize);
+
+    for stat in &buf {
+        let mount_point = std::ffi::CStr::from_ptr(stat.f_mntonname.as_ptr())
+            .to_string_lossy()
+            .to_string();
+        let fs_type = std::ffi::CStr::from_ptr(stat.f_fstypename.as_ptr())
+            .to_string_lossy()
+            .to_string();
+        let device = std::ffi::CStr::from_ptr(stat.f_mntfromname.as_ptr())
+            .to_string_lossy()
+            .to_string();
+
+        let total = stat.f_blocks * (stat.f_bsize as u64);
+        let available = stat.f_bavail * (stat.f_bsize as u64);
+
+        entries.push((mount_point, fs_type, total, available, device));
+    }
+
+    entries
+}
+
+/// 获取物理磁盘健康度信息（按物理磁盘分组，独立于挂载点）
+#[tauri::command]
+pub async fn get_physical_disk_health(
+    lang: Option<String>,
+) -> Result<Vec<PhysicalDiskHealth>, String> {
+    let _lang = lang.as_deref().unwrap_or("zh-CN");
+
+    #[cfg(target_os = "macos")]
+    let health = get_macos_disk_health();
+    #[cfg(not(target_os = "macos"))]
+    let health = get_sysinfo_disk_health();
+
+    log::info!("get_physical_disk_health: 返回 {} 个物理磁盘", health.len());
+    Ok(health)
+}
+
+#[cfg(target_os = "macos")]
+fn get_macos_disk_health() -> Vec<PhysicalDiskHealth> {
+    let mut disks: Vec<PhysicalDiskHealth> = Vec::new();
+
+    // ── 从 system_profiler SPNVMeDataType -xml 获取 NVMe 磁盘信息 ──
+    if let Some(nvme_disks) = parse_nvme_plist() {
+        for nvme in nvme_disks {
+            let mut health = PhysicalDiskHealth {
+                device_id: nvme.bsd_name.clone(),
+                model: nvme.device_model.clone(),
+                serial: nvme.device_serial.clone(),
+                firmware: nvme.device_revision.clone(),
+                capacity: nvme.size_in_bytes,
+                medium_type: "SSD".to_string(),
+                protocol: "Apple Fabric".to_string(),
+                smart_status: nvme.smart_status.clone(),
+                is_internal: true,
+                trim_support: nvme.trim_support.clone(),
+                io_stats: get_iokit_io_stats(&nvme.bsd_name),
+                volumes: nvme.volumes.clone(),
+            };
+
+            // 尝试通过 diskutil 获取更准确的 protocol 信息
+            if let Some(du) = parse_diskutil_plist(&format!("/dev/{}", nvme.bsd_name)) {
+                if let Some(proto) = du.bus_protocol {
+                    health.protocol = proto;
+                }
+            }
+
+            disks.push(health);
+        }
+    }
+
+    // ── 补充非 NVMe 磁盘（如有） ──
+    // 使用 sysinfo 检测 HDD / USB 外置磁盘
+    if disks.is_empty() {
+        disks = get_sysinfo_disk_health();
+    }
+
+    disks
+}
+
+/// 解析 system_profiler SPNVMeDataType -xml 输出
+#[cfg(target_os = "macos")]
+fn parse_nvme_plist() -> Option<Vec<NvmeDiskInfo>> {
+    let output = std::process::Command::new("system_profiler")
+        .args(["SPNVMeDataType", "-xml", "-detailLevel", "full"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    // system_profiler 输出是 [{ _items: [{ _items: [...] }] }]
+    let top: Vec<plist::Value> = plist::from_bytes(&output.stdout).ok()?;
+    let root = top.first()?;
+    let items = root
+        .as_dictionary()?
+        .get("_items")?
+        .as_array()?;
+
+    let mut disks: Vec<NvmeDiskInfo> = Vec::new();
+
+    for item in items {
+        let dict = item.as_dictionary()?;
+        if let Some(inner_items) = dict.get("_items").and_then(|v| v.as_array()) {
+            for disk_entry in inner_items {
+                let d = disk_entry.as_dictionary()?;
+                let bsd = d.get("bsd_name").and_then(|v| v.as_string()).unwrap_or("");
+                let model = d.get("device_model").and_then(|v| v.as_string()).unwrap_or("");
+                let serial = d.get("device_serial").and_then(|v| v.as_string()).map(|s| s.to_string());
+                let fw = d.get("device_revision").and_then(|v| v.as_string()).map(|s| s.to_string());
+                let size: u64 = d.get("size_in_bytes").and_then(|v| v.as_unsigned_integer()).unwrap_or(0);
+                let smart = d.get("smart_status").and_then(|v| v.as_string()).map(|s| s.to_string());
+                let trim = d.get("spnvme_trim_support").and_then(|v| v.as_string()).map(|s| s == "Yes");
+
+                let mut volumes: Vec<DiskVolumeRef> = Vec::new();
+                if let Some(vols) = d.get("volumes").and_then(|v| v.as_array()) {
+                    for vol in vols {
+                        if let Some(vd) = vol.as_dictionary() {
+                            let mount = vd.get("_name").and_then(|v| v.as_string()).unwrap_or("").to_string();
+                            let vsize: u64 = vd.get("size_in_bytes").and_then(|v| v.as_unsigned_integer()).unwrap_or(0);
+                            let vol_bsd = vd.get("bsd_name").and_then(|v| v.as_string()).unwrap_or("").to_string();
+                            volumes.push(DiskVolumeRef {
+                                mount_point: mount,
+                                bsd_name: vol_bsd,
+                                size: vsize,
+                                file_system: String::new(),
+                            });
+                        }
+                    }
+                }
+
+                disks.push(NvmeDiskInfo {
+                    bsd_name: bsd.to_string(),
+                    device_model: model.to_string(),
+                    device_serial: serial,
+                    device_revision: fw,
+                    size_in_bytes: size,
+                    smart_status: smart,
+                    trim_support: trim,
+                    volumes,
+                });
+            }
+        }
+    }
+
+    Some(disks)
+}
+
+/// 从 IOKit IOBlockStorageDriver 获取 I/O 统计
+#[cfg(target_os = "macos")]
+fn get_iokit_io_stats(bsd_name: &str) -> Option<DiskIOStats> {
+    let output = std::process::Command::new("ioreg")
+        .args(["-c", "IOBlockStorageDriver", "-r", "-w0", "-a"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    // ioreg -a 输出是 [{IOBlockStorageDriver}, ...] 数组
+    let drivers: Vec<plist::Value> = plist::from_bytes(&output.stdout).ok()?;
+
+    // 递归查找 IOMedia 子节点中是否有匹配 target 的 BSD Name
+    fn has_bsd_name_match(node: &plist::Value, target: &str) -> bool {
+        if let Some(dict) = node.as_dictionary() {
+            if let Some(name) = dict.get("BSD Name").and_then(|v| v.as_string()) {
+                if name == target {
+                    return true;
+                }
+            }
+            // 搜索 IORegistryEntryChildren
+            if let Some(children) = dict.get("IORegistryEntryChildren").and_then(|v| v.as_array()) {
+                for child in children {
+                    if has_bsd_name_match(child, target) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn extract_stats(dict: &plist::Dictionary) -> Option<DiskIOStats> {
+        let stats = dict.get("Statistics")?;
+        let d = stats.as_dictionary()?;
+        Some(DiskIOStats {
+            bytes_read: d.get("Bytes (Read)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+            bytes_written: d.get("Bytes (Write)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+            operations_read: d.get("Operations (Read)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+            operations_written: d.get("Operations (Write)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+            errors_read: d.get("Errors (Read)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+            errors_write: d.get("Errors (Write)").and_then(|v| v.as_unsigned_integer()).unwrap_or(0),
+        })
+    }
+
+    for driver in &drivers {
+        if has_bsd_name_match(driver, bsd_name) {
+            if let Some(dict) = driver.as_dictionary() {
+                return extract_stats(dict);
+            }
+        }
+    }
+
+    None
+}
+
+/// 非 macOS: 用 sysinfo 获取基本磁盘健康信息
+fn get_sysinfo_disk_health() -> Vec<PhysicalDiskHealth> {
+    use sysinfo::Disks;
+
+    let disks = Disks::new_with_refreshed_list();
+    let mut health_list: Vec<PhysicalDiskHealth> = Vec::new();
+
+    for disk in disks.iter() {
+        let name = disk.name().to_string_lossy().to_string();
+        let mount = disk.mount_point().to_string_lossy().to_string();
+        let kind = match disk.kind() {
+            sysinfo::DiskKind::SSD => "SSD",
+            sysinfo::DiskKind::HDD => "HDD",
+            _ => "Unknown",
+        };
+
+        health_list.push(PhysicalDiskHealth {
+            device_id: name.clone(),
+            model: name,
+            serial: None,
+            firmware: None,
+            capacity: disk.total_space(),
+            medium_type: kind.to_string(),
+            protocol: String::new(),
+            smart_status: None,
+            is_internal: !disk.is_removable(),
+            trim_support: None,
+            io_stats: None,
+            volumes: vec![DiskVolumeRef {
+                mount_point: mount,
+                bsd_name: String::new(),
+                size: disk.total_space(),
+                file_system: disk.file_system().to_string_lossy().to_string(),
+            }],
+        });
+    }
+
+    health_list
+}
+
+/// system_profiler NVMe 解析的内部结构
+#[cfg(target_os = "macos")]
+#[derive(Debug, Clone)]
+struct NvmeDiskInfo {
+    bsd_name: String,
+    device_model: String,
+    device_serial: Option<String>,
+    device_revision: Option<String>,
+    size_in_bytes: u64,
+    smart_status: Option<String>,
+    trim_support: Option<bool>,
+    volumes: Vec<DiskVolumeRef>,
+}
+
 // ─── 系统托盘 ──────────────────────────────────────────────────────────────────
 
 /// 语言切换时更新托盘菜单文本

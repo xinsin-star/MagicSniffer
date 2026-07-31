@@ -99,6 +99,8 @@ pub fn run() {
             commands::set_scan_priority,
             commands::stop_scan,
             commands::update_tray_menu,
+            commands::get_disk_mounts,
+            commands::get_physical_disk_health,
         ])
         .run(tauri::generate_context!())
         .expect("启动 MagicSniffer 失败");
