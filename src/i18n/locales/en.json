@@ -121,7 +121,13 @@
     "languageDesc": "Switch interface language",
     "zhCN": "中文",
     "en": "English",
-    "close": "Close"
+    "close": "Close",
+    "diskHealth": "Disk Health",
+    "smartctlInstalled": "Installed — NVMe SMART data available",
+    "smartctlNotInstalled": "smartmontools not installed",
+    "smartctlDataDesc": "Provides NVMe SMART data including temperature, available spare, percentage used, power-on hours, data read/written, media errors, and more.",
+    "smartctlInstallHint": "Install to get full NVMe SMART health data:",
+    "checking": "Checking…"
   },
   "disk": {
     "mountPoints": "Disk Mounts",
@@ -143,7 +149,18 @@
     "lifetimeReads": "Lifetime reads",
     "lifetimeWrites": "Lifetime writes",
     "errors": "Errors",
-    "noErrors": "No errors"
+    "noErrors": "No errors",
+    "temperature": "Temperature",
+    "availableSpare": "Available Spare",
+    "percentageUsed": "Percentage Used",
+    "powerOnHours": "Power On Hours",
+    "powerCycles": "Power Cycles",
+    "unsafeShutdowns": "Unsafe Shutdowns",
+    "dataRead": "Data Read",
+    "dataWritten": "Data Written",
+    "mediaErrors": "Media Errors",
+    "criticalWarning": "Critical Warning",
+    "none": "None"
   },
   "menu": {
     "home": "Home",
