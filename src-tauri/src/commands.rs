@@ -631,10 +631,43 @@ fn get_macos_disk_health() -> Vec<PhysicalDiskHealth> {
     disks
 }
 
+/// 定位 smartctl 可执行文件
+///
+/// GUI 应用从 Finder 启动时 PATH 不包含 Homebrew 目录，
+/// 因此需要显式探测常见安装路径，避免依赖 PATH。
+#[cfg(target_os = "macos")]
+fn find_smartctl() -> Option<std::path::PathBuf> {
+    let candidates = [
+        "/opt/homebrew/bin/smartctl", // Apple Silicon Homebrew
+        "/usr/local/bin/smartctl",    // Intel Homebrew
+        "/usr/bin/smartctl",
+        "/usr/local/sbin/smartctl",
+    ];
+    for path in candidates {
+        if std::path::Path::new(path).is_file() {
+            return Some(std::path::PathBuf::from(path));
+        }
+    }
+    // 兜底：通过 PATH 查找
+    if let Ok(output) = std::process::Command::new("/usr/bin/which")
+        .arg("smartctl")
+        .output()
+    {
+        if output.status.success() {
+            let p = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !p.is_empty() {
+                return Some(std::path::PathBuf::from(p));
+            }
+        }
+    }
+    None
+}
+
 /// 解析 smartctl -a 输出，提取 NVMe SMART 健康数据
 #[cfg(target_os = "macos")]
 fn parse_smartctl(device: &str) -> Option<NvmeSmartData> {
-    let output = std::process::Command::new("smartctl")
+    let smartctl = find_smartctl()?;
+    let output = std::process::Command::new(smartctl)
         .args(["-a", device])
         .output()
         .ok()?;
@@ -859,7 +892,30 @@ fn get_sysinfo_disk_health() -> Vec<PhysicalDiskHealth> {
 pub async fn check_smartctl(lang: Option<String>) -> Result<SmartctlStatus, String> {
     let _lang = lang.as_deref().unwrap_or("zh-CN");
 
-    match std::process::Command::new("smartctl").arg("--version").output() {
+    #[cfg(target_os = "macos")]
+    let path = find_smartctl();
+    #[cfg(not(target_os = "macos"))]
+    let path = std::env::var("PATH").ok().and_then(|_| {
+        if std::process::Command::new("smartctl")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
+            Some(std::path::PathBuf::from("smartctl"))
+        } else {
+            None
+        }
+    });
+
+    let Some(path) = path else {
+        return Ok(SmartctlStatus {
+            available: false,
+            version: None,
+        });
+    };
+
+    match std::process::Command::new(&path).arg("--version").output() {
         Ok(output) if output.status.success() => {
             let text = String::from_utf8_lossy(&output.stdout);
             let version = text
