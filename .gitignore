@@ -57,3 +57,4 @@ coverage/
 
 # ===== Claude Code (local overrides only) =====
 .claude/settings.local.json
+1.txt
