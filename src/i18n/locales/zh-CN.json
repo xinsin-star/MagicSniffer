@@ -123,6 +123,28 @@
     "en": "English",
     "close": "关闭"
   },
+  "disk": {
+    "mountPoints": "磁盘挂载点",
+    "healthTitle": "磁盘健康度",
+    "used": "已用",
+    "free": "可用",
+    "healthy": "正常",
+    "warning": "警告",
+    "unknown": "未知",
+    "ssd": "固态硬盘",
+    "hdd": "机械硬盘",
+    "removable": "可移动",
+    "smartUnavailable": "不可用",
+    "totalCapacity": "磁盘容量",
+    "internal": "内置",
+    "external": "外置",
+    "volumes": "{count} 个卷",
+    "ioStats": "I/O 统计",
+    "lifetimeReads": "总读取量",
+    "lifetimeWrites": "总写入量",
+    "errors": "错误数",
+    "noErrors": "无错误"
+  },
   "menu": {
     "home": "回到首页",
     "settings": "设置…"

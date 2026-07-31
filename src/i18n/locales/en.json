@@ -123,6 +123,28 @@
     "en": "English",
     "close": "Close"
   },
+  "disk": {
+    "mountPoints": "Disk Mounts",
+    "healthTitle": "Disk Health",
+    "used": "Used",
+    "free": "Free",
+    "healthy": "Healthy",
+    "warning": "Warning",
+    "unknown": "Unknown",
+    "ssd": "SSD",
+    "hdd": "HDD",
+    "removable": "Removable",
+    "smartUnavailable": "N/A",
+    "totalCapacity": "Capacity",
+    "internal": "Internal",
+    "external": "External",
+    "volumes": "{count} volumes",
+    "ioStats": "I/O Statistics",
+    "lifetimeReads": "Lifetime reads",
+    "lifetimeWrites": "Lifetime writes",
+    "errors": "Errors",
+    "noErrors": "No errors"
+  },
   "menu": {
     "home": "Home",
     "settings": "Settings…"
