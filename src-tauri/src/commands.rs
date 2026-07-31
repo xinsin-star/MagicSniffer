@@ -605,6 +605,7 @@ fn get_macos_disk_health() -> Vec<PhysicalDiskHealth> {
                 is_internal: true,
                 trim_support: nvme.trim_support.clone(),
                 io_stats: get_iokit_io_stats(&nvme.bsd_name),
+                nvme_smart: None,
                 volumes: nvme.volumes.clone(),
             };
 
@@ -615,17 +616,75 @@ fn get_macos_disk_health() -> Vec<PhysicalDiskHealth> {
                 }
             }
 
+            // ── 第三步：通过 smartctl 获取 NVMe SMART 详细数据 ──
+            health.nvme_smart = parse_smartctl(&nvme.bsd_name);
+
             disks.push(health);
         }
     }
 
     // ── 补充非 NVMe 磁盘（如有） ──
-    // 使用 sysinfo 检测 HDD / USB 外置磁盘
     if disks.is_empty() {
         disks = get_sysinfo_disk_health();
     }
 
     disks
+}
+
+/// 解析 smartctl -a 输出，提取 NVMe SMART 健康数据
+#[cfg(target_os = "macos")]
+fn parse_smartctl(device: &str) -> Option<NvmeSmartData> {
+    let output = std::process::Command::new("smartctl")
+        .args(["-a", device])
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    // smartctl 在 Apple Silicon 上可能返回非零退出码（如 4=Error Log 读取失败）
+    // 但仍然输出了完整的 SMART 数据，因此改用内容检测
+    if !text.contains("SMART/Health Information") {
+        log::warn!("smartctl 未返回 SMART/Health Information 段");
+        return None;
+    }
+
+    let get = |key: &str| -> Option<u64> {
+        let line = text.lines().find(|l| l.trim().starts_with(key))?;
+        let val = line.split(':').nth(1)?.trim();
+        // 处理 "1,389" 格式的数字
+        val.replace(',', "").split_whitespace().next()?.parse().ok()
+    };
+
+    let get_pct = |key: &str| -> Option<u32> {
+        let line = text.lines().find(|l| l.trim().starts_with(key))?;
+        let val = line.split(':').nth(1)?.trim();
+        val.trim_end_matches('%').parse().ok()
+    };
+
+    let get_hex = |key: &str| -> Option<u8> {
+        let line = text.lines().find(|l| l.trim().starts_with(key))?;
+        let val = line.split(':').nth(1)?.trim();
+        u8::from_str_radix(val.trim_start_matches("0x"), 16).ok()
+    };
+
+    let data_units_read = get("Data Units Read")?;
+    let data_units_written = get("Data Units Written")?;
+
+    Some(NvmeSmartData {
+        critical_warning: get_hex("Critical Warning").unwrap_or(0),
+        temperature_celsius: get("Temperature").unwrap_or(0) as u32,
+        available_spare: get_pct("Available Spare").unwrap_or(0),
+        available_spare_threshold: get_pct("Available Spare Threshold").unwrap_or(0),
+        percentage_used: get_pct("Percentage Used").unwrap_or(0),
+        data_units_read_bytes: data_units_read * 512_000,
+        data_units_written_bytes: data_units_written * 512_000,
+        host_read_commands: get("Host Read Commands").unwrap_or(0),
+        host_write_commands: get("Host Write Commands").unwrap_or(0),
+        controller_busy_time: get("Controller Busy Time").unwrap_or(0),
+        power_cycles: get("Power Cycles").unwrap_or(0),
+        power_on_hours: get("Power On Hours").unwrap_or(0),
+        unsafe_shutdowns: get("Unsafe Shutdowns").unwrap_or(0),
+        media_errors: get("Media and Data Integrity Errors").unwrap_or(0),
+        error_log_entries: get("Error Information Log Entries").unwrap_or(0),
+    })
 }
 
 /// 解析 system_profiler SPNVMeDataType -xml 输出
@@ -782,6 +841,7 @@ fn get_sysinfo_disk_health() -> Vec<PhysicalDiskHealth> {
             is_internal: !disk.is_removable(),
             trim_support: None,
             io_stats: None,
+            nvme_smart: None,
             volumes: vec![DiskVolumeRef {
                 mount_point: mount,
                 bsd_name: String::new(),
@@ -792,6 +852,31 @@ fn get_sysinfo_disk_health() -> Vec<PhysicalDiskHealth> {
     }
 
     health_list
+}
+
+/// 检查 smartctl (smartmontools) 是否已安装
+#[tauri::command]
+pub async fn check_smartctl(lang: Option<String>) -> Result<SmartctlStatus, String> {
+    let _lang = lang.as_deref().unwrap_or("zh-CN");
+
+    match std::process::Command::new("smartctl").arg("--version").output() {
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8_lossy(&output.stdout);
+            let version = text
+                .lines()
+                .next()
+                .and_then(|l| l.split_whitespace().nth(1))
+                .map(|v| v.to_string());
+            Ok(SmartctlStatus {
+                available: true,
+                version,
+            })
+        }
+        _ => Ok(SmartctlStatus {
+            available: false,
+            version: None,
+        }),
+    }
 }
 
 /// system_profiler NVMe 解析的内部结构

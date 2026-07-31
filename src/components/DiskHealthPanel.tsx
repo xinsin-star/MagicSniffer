@@ -136,8 +136,79 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                 </div>
               </div>
 
-              {/* I/O stats */}
-              {disk.io_stats && (
+              {/* NVMe SMART 详细数据 */}
+              {disk.nvme_smart && (
+                <div className="mb-3 rounded-xl border border-moss-200/60 bg-moss-50/50 p-3">
+                  <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-ink-muted">
+                    NVMe SMART
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[10px]">
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.temperature")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {disk.nvme_smart.temperature_celsius}°C
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.availableSpare")}</span>
+                      <span className={`font-mono font-medium ${disk.nvme_smart.available_spare > disk.nvme_smart.available_spare_threshold ? "text-green-600" : "text-red-500"}`}>
+                        {disk.nvme_smart.available_spare}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.percentageUsed")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {disk.nvme_smart.percentage_used}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.powerOnHours")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {disk.nvme_smart.power_on_hours.toLocaleString()} h
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.powerCycles")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {disk.nvme_smart.power_cycles.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.unsafeShutdowns")}</span>
+                      <span className={`font-mono font-medium ${disk.nvme_smart.unsafe_shutdowns === 0 ? "text-green-600" : "text-orange-500"}`}>
+                        {disk.nvme_smart.unsafe_shutdowns}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.dataRead")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {formatLargeSize(disk.nvme_smart.data_units_read_bytes)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.dataWritten")}</span>
+                      <span className="font-mono font-medium text-ink-soft">
+                        {formatLargeSize(disk.nvme_smart.data_units_written_bytes)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.mediaErrors")}</span>
+                      <span className={`font-mono font-medium ${disk.nvme_smart.media_errors === 0 ? "text-green-600" : "text-red-500"}`}>
+                        {disk.nvme_smart.media_errors}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">{t("disk.criticalWarning")}</span>
+                      <span className={`font-mono font-medium ${disk.nvme_smart.critical_warning === 0 ? "text-green-600" : "text-red-500"}`}>
+                        {disk.nvme_smart.critical_warning === 0 ? t("disk.none") : `0x${disk.nvme_smart.critical_warning.toString(16)}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* I/O stats (fallback when no NVMe SMART) */}
+              {disk.io_stats && !disk.nvme_smart && (
                 <div className="rounded-xl border border-moss-200/60 bg-moss-50/50 p-3">
                   <div className="mb-2 text-[10px] font-medium uppercase tracking-wide text-ink-muted">
                     {t("disk.ioStats")}

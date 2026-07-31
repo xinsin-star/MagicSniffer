@@ -121,7 +121,13 @@
     "languageDesc": "切换界面显示语言",
     "zhCN": "中文",
     "en": "English",
-    "close": "关闭"
+    "close": "关闭",
+    "diskHealth": "磁盘健康度",
+    "smartctlInstalled": "已安装，NVMe SMART 数据正常获取",
+    "smartctlNotInstalled": "未安装 smartmontools",
+    "smartctlDataDesc": "可获取温度、剩余备用块、已用寿命、通电时间、读写数据量、介质错误等 NVMe SMART 详细数据。",
+    "smartctlInstallHint": "安装后可获取完整的 NVMe SMART 健康数据：",
+    "checking": "检测中…"
   },
   "disk": {
     "mountPoints": "磁盘挂载点",
@@ -143,7 +149,18 @@
     "lifetimeReads": "总读取量",
     "lifetimeWrites": "总写入量",
     "errors": "错误数",
-    "noErrors": "无错误"
+    "noErrors": "无错误",
+    "temperature": "当前温度",
+    "availableSpare": "剩余备用块",
+    "percentageUsed": "已用寿命",
+    "powerOnHours": "通电时间",
+    "powerCycles": "通电循环",
+    "unsafeShutdowns": "异常断电",
+    "dataRead": "读取数据量",
+    "dataWritten": "写入数据量",
+    "mediaErrors": "介质错误",
+    "criticalWarning": "严重警告",
+    "none": "无"
   },
   "menu": {
     "home": "回到首页",

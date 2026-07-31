@@ -229,6 +229,31 @@ export interface DiskIOStats {
   errors_write: number;
 }
 
+/** NVMe SMART 详细健康数据 */
+export interface NvmeSmartData {
+  critical_warning: number;
+  temperature_celsius: number;
+  available_spare: number;
+  available_spare_threshold: number;
+  percentage_used: number;
+  data_units_read_bytes: number;
+  data_units_written_bytes: number;
+  host_read_commands: number;
+  host_write_commands: number;
+  controller_busy_time: number;
+  power_cycles: number;
+  power_on_hours: number;
+  unsafe_shutdowns: number;
+  media_errors: number;
+  error_log_entries: number;
+}
+
+/** smartctl 可用性检查结果 */
+export interface SmartctlStatus {
+  available: boolean;
+  version?: string;
+}
+
 /** 物理磁盘上的卷引用 */
 export interface DiskVolumeRef {
   mount_point: string;
@@ -250,6 +275,7 @@ export interface PhysicalDiskHealth {
   is_internal: boolean;
   trim_support?: boolean;
   io_stats?: DiskIOStats;
+  nvme_smart?: NvmeSmartData;
   volumes: DiskVolumeRef[];
 }
 

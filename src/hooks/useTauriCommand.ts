@@ -17,6 +17,7 @@ import type {
   BatchRiskResult,
   DiskMountInfo,
   PhysicalDiskHealth,
+  SmartctlStatus,
 } from "../types";
 
 /**
@@ -158,4 +159,11 @@ export async function getPhysicalDiskHealth(
   return invoke<PhysicalDiskHealth[]>("get_physical_disk_health", {
     lang: lang ?? null,
   });
+}
+
+/** 检查 smartctl (smartmontools) 是否已安装 */
+export async function checkSmartctl(
+  lang?: string,
+): Promise<SmartctlStatus> {
+  return invoke<SmartctlStatus>("check_smartctl", { lang: lang ?? null });
 }

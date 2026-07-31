@@ -1,15 +1,21 @@
 {
   "name": "magicsniffer",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "macOS 存储空间可视化分析工具 - 类似 SpaceSniffer 的磁盘空间统计器",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "bump-version": "bash scripts/bump-version.sh 0.4.0",
     "tauri": "tauri",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:debug": "tauri build --debug",
+    "tauri:check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "tauri:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
