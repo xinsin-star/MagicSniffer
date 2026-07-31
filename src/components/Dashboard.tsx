@@ -51,15 +51,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">
-      <div className="mb-8 max-w-2xl">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-moss-800">
-          MagicSniffer
-        </h1>
-        <p className="mt-2 text-base text-ink-soft">
-          {t("dashboard.subtitle")}
-        </p>
-      </div>
-
       <div className="mb-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label={t("dashboard.totalCapacity")} value={formatSize(overview.total_space)} sub={t("dashboard.available", { size: formatSize(overview.free_space) })} />
         <StatCard label={t("dashboard.usedSpace")} value={formatSize(overview.used_space)} sub={t("dashboard.usedPercent", { pct: usedPct })} />
