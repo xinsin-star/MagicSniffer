@@ -63,6 +63,45 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
 
+  # ─── Linux 构建 ──────────────────────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+
+      - name: Install frontend deps
+        run: bun install
+
+      - name: Build Tauri (Linux)
+        run: bun run tauri build
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: src-tauri/target/release/bundle/appimage/*.AppImage
+          if-no-files-found: warn
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: warn
+
   # ─── Windows 构建 ───────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
@@ -99,10 +138,9 @@ jobs:
 
   # ─── 创建 Tag + GitHub Release ──────────────────────────────────────────────
   release:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
-    # 仅在至少一个构建成功时执行
-    if: always() && (needs.build-macos.result == 'success' || needs.build-windows.result == 'success')
+    if: always() && (needs.build-macos.result == 'success' || needs.build-linux.result == 'success' || needs.build-windows.result == 'success')
     steps:
       - uses: actions/checkout@v4
 
@@ -141,6 +179,20 @@ jobs:
           path: artifacts/
         continue-on-error: true
 
+      - name: Download Linux AppImage
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-appimage
+          path: artifacts/
+        continue-on-error: true
+
+      - name: Download Linux DEB
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-deb
+          path: artifacts/
+        continue-on-error: true
+
       - name: Create tag
         run: |
           git config user.name "github-actions[bot]"
@@ -161,9 +213,13 @@ jobs:
             ## MagicSniffer ${{ steps.version.outputs.tag }}
 
             构建产物：
-            - `MagicSniffer_${{ steps.version.outputs.version }}_aarch64.dmg` — macOS Apple Silicon (M 系列)
-            - `MagicSniffer_${{ steps.version.outputs.version }}_x64.dmg` — macOS Intel
+            - `MagicSniffer_${{ steps.version.outputs.version }}_aarch64.dmg` — macOS Apple Silicon（临时签名）
+            - `MagicSniffer_${{ steps.version.outputs.version }}_x64.dmg` — macOS Intel（临时签名）
             - `MagicSniffer_${{ steps.version.outputs.version }}_x64.msi` — Windows 安装包
+            - `magicsniffer_${{ steps.version.outputs.version }}_amd64.AppImage` — Linux AppImage
+            - `magicsniffer_${{ steps.version.outputs.version }}_amd64.deb` — Linux DEB 包
+
+            > macOS 使用 ad-hoc 临时签名，首次打开时如提示"无法验证开发者"，请在 Finder 中右键 App → 打开 即可运行。
 
             > 发布说明待补充。
           files: artifacts/*
