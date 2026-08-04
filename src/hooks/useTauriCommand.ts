@@ -18,6 +18,7 @@ import type {
   DiskMountInfo,
   PhysicalDiskHealth,
   SmartctlStatus,
+  ExpandNodeResponse,
 } from "../types";
 
 /**
@@ -90,6 +91,14 @@ export async function quickScanKnownDirs() {
  */
 export async function searchFiles(request: SearchRequest): Promise<SearchResult> {
   return invoke<SearchResult>("search_files", { request });
+}
+
+/**
+ * 懒加载展开目录：双击目录时调用，返回该目录的直接子项。
+ * 子目录的 children 字段为空数组表示尚未展开，需要再双击时再加载。
+ */
+export async function expandNode(path: string): Promise<ExpandNodeResponse> {
+  return invoke<ExpandNodeResponse>("expand_node", { req: { path } });
 }
 
 /**

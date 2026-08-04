@@ -279,6 +279,23 @@ export interface PhysicalDiskHealth {
   volumes: DiskVolumeRef[];
 }
 
+// ─── 懒加载展开 ─────────────────────────────────────────────────────────────────
+
+/** 展开目录请求 - 对应 Rust 的 ExpandNodeRequest */
+export interface ExpandNodeRequest {
+  path: string;
+}
+
+/** 展开目录响应 - 对应 Rust 的 ExpandNodeResponse */
+export interface ExpandNodeResponse {
+  /** 展开的目录路径 */
+  path: string;
+  /** 直接子节点列表（按大小降序，子目录 children 为空表示尚未展开） */
+  children: FileNode[];
+  /** 子项数量是否超过上限被截断 */
+  truncated: boolean;
+}
+
 // ─── 搜索 ───────────────────────────────────────────────────────────────────────
 
 /** 搜索请求参数 - 对应 Rust 的 SearchRequest */

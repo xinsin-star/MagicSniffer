@@ -83,11 +83,13 @@ interface EChartsTreeItem {
   isDir: boolean;
   category: FileCategory;
   riskLevel: string;
-  itemStyle: { color: string; borderColor: string; borderWidth: number };
+  itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: "solid" | "dashed" | "dotted" };
   children?: EChartsTreeItem[];
 }
 
 function toEChartsTree(node: FileNode, depth: number, maxDepth: number): EChartsTreeItem {
+  // 未展开的目录：用虚线描边 + 更小宽度，视觉上提示"可双击加载"
+  const isCollapsibleDir = node.is_dir && (!node.children || node.children.length === 0);
   const color = colorForNode(node.path, node.category);
   const item: EChartsTreeItem = {
     name: node.name || node.path,
@@ -98,8 +100,9 @@ function toEChartsTree(node: FileNode, depth: number, maxDepth: number): ECharts
     riskLevel: node.risk_level,
     itemStyle: {
       color,
-      borderColor: "#ffffff",
-      borderWidth: 2,
+      borderColor: isCollapsibleDir ? "#7cb798" : "#ffffff",
+      borderWidth: isCollapsibleDir ? 2 : 2,
+      borderType: isCollapsibleDir ? "dashed" : "solid",
     },
   };
 

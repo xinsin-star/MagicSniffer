@@ -54,7 +54,9 @@
     "zoomIn": "Zoom in",
     "resetView": "Reset",
     "resetViewTitle": "Reset view",
-    "scanningOverlay": "Scanning disk space…"
+    "scanningOverlay": "Scanning disk space…",
+    "expandHint": "Double-click to expand",
+    "loadingChildren": "Loading children…"
   },
   "search": {
     "placeholder": "Search files or directories…",
