@@ -484,3 +484,23 @@ pub struct BatchRiskResult {
     /// 是否可以安全删除全部
     pub all_safe: bool,
 }
+
+// ─── 懒加载展开 ─────────────────────────────────────────────────────────────────
+
+/// 展开目录请求 — 双击目录时按需加载该目录的直接子项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpandNodeRequest {
+    /// 要展开的目录路径
+    pub path: String,
+}
+
+/// 展开目录响应 — 该目录的直接子节点列表（每个子目录 children=None 表示尚未展开）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExpandNodeResponse {
+    /// 展开的目录路径
+    pub path: String,
+    /// 直接子节点列表（按大小降序）
+    pub children: Vec<FileNode>,
+    /// 子项数量是否超过上限被截断
+    pub truncated: bool,
+}
