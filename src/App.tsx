@@ -103,6 +103,76 @@ const App: React.FC = () => {
   const scanningRef = React.useRef(false);
   const leaveAfterStopRef = React.useRef(false);
 
+  /** 路径 → 已展开的子项缓存，避免重复请求后端
+   *  - 内存层：expandedCacheRef（当前会话）
+   *  - 持久层：localStorage，跨会话保持
+   */
+  const expandedCacheRef = React.useRef<Map<string, FileNode[]>>(new Map());
+
+  /** 缓存 key = 扫描根路径，避免不同根之间互相覆盖 */
+  const expandedCacheKey = (rootPath: string | undefined) =>
+    rootPath ? `magicsniffer.expand-cache::${rootPath}` : null;
+
+  /** 从 localStorage 读取持久化的展开缓存 */
+  const loadPersistedCache = useCallback((rootPath: string): Map<string, FileNode[]> => {
+    const key = expandedCacheKey(rootPath);
+    if (!key) return new Map();
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return new Map();
+      const parsed = JSON.parse(raw) as Record<string, FileNode[]>;
+      return new Map(Object.entries(parsed));
+    } catch (e) {
+      console.warn("读取展开缓存失败:", e);
+      return new Map();
+    }
+  }, []);
+
+  /** 持久化展开缓存到 localStorage */
+  const persistCache = useCallback(
+    (rootPath: string, cache: Map<string, FileNode[]>) => {
+      const key = expandedCacheKey(rootPath);
+      if (!key) return;
+      try {
+        const obj: Record<string, FileNode[]> = {};
+        for (const [k, v] of cache) obj[k] = v;
+        localStorage.setItem(key, JSON.stringify(obj));
+      } catch (e) {
+        console.warn("写入展开缓存失败:", e);
+      }
+    },
+    []
+  );
+
+  /** 正在展开的目录路径集合（用于 Treemap 加载提示） */
+  const [expandingPaths, setExpandingPaths] = useState<Set<string>>(new Set());
+
+  /** 把 children 注入目标路径节点，返回克隆后的新树（从根到目标路径全部新建引用） */
+  const injectChildren = useCallback(
+    (root: FileNode, targetPath: string, children: FileNode[]): FileNode => {
+      if (root.path === targetPath) {
+        return { ...root, children };
+      }
+      const newChildren: FileNode[] = [];
+      let matched = false;
+      for (const child of root.children ?? []) {
+        if (
+          !matched &&
+          (child.path === targetPath ||
+            targetPath.startsWith(`${child.path}/`) ||
+            (child.path === "/" && targetPath.startsWith("/")))
+        ) {
+          newChildren.push(injectChildren(child, targetPath, children));
+          matched = true;
+        } else {
+          newChildren.push(child);
+        }
+      }
+      return { ...root, children: newChildren };
+    },
+    []
+  );
+
   const handleSetScanPath = useCallback((p: string) => {
     setScanPath(p);
     setScanError(null);
@@ -110,6 +180,8 @@ const App: React.FC = () => {
 
   const applyCached = useCallback((cached: CachedScan, opts?: { fromCache?: boolean }) => {
     const result = cached.result;
+    // 加载该扫描根的持久化展开缓存
+    expandedCacheRef.current = loadPersistedCache(result.root_path);
     setScanResult(result);
     setLivePreview(null);
     setSelectedNode(null);
@@ -138,7 +210,7 @@ const App: React.FC = () => {
       };
     });
     setAppState("results");
-  }, []);
+  }, [loadPersistedCache]);
 
   /** 刷新缓存列表（最多 5 条） */
   const refreshCacheList = useCallback(async () => {
@@ -506,23 +578,6 @@ const App: React.FC = () => {
     void setScanPriority(path);
   }, []);
 
-  /** 递归在树中找到指定路径节点并注入 children（就地修改） */
-  const patchNodeChildren = useCallback(
-    (root: FileNode, path: string, children: FileNode[]): boolean => {
-      if (root.path === path) {
-        root.children = children;
-        return true;
-      }
-      if (root.children) {
-        for (const child of root.children) {
-          if (patchNodeChildren(child, path, children)) return true;
-        }
-      }
-      return false;
-    },
-    []
-  );
-
   const handleDrillInto = useCallback(
     async (node: FileNode) => {
       if (!node.is_dir) return;
@@ -538,31 +593,51 @@ const App: React.FC = () => {
       setNavStack(buildNavStack(tree, full.path));
       syncPriority(full.path);
 
-      // 懒加载：如果该目录尚未展开（children 为空或不存在），调用后端加载
+      // 懒加载：如果该目录尚未展开（children 为空或不存在），加载子项
       if (!full.children || full.children.length === 0) {
-        try {
-          const resp = await expandNode(full.path);
-          // 把子项注入过滤树中
-          patchNodeChildren(tree, full.path, resp.children);
-          // 同步注入 scanResult.root_node 树（确保页面状态与 ref 一致）
-          if (scanResult) {
-            const scanTree = scanResult.root_node;
-            patchNodeChildren(scanTree, full.path, resp.children);
-            // 触发 React 重渲染：克隆出新引用
-            setScanResult({ ...scanResult, root_node: scanTree });
+        // 优先用内存缓存
+        const cached = expandedCacheRef.current.get(full.path);
+        let resp: { children: FileNode[]; truncated: boolean };
+        if (cached) {
+          resp = { children: cached, truncated: false };
+        } else {
+          setExpandingPaths((prev) => {
+            const next = new Set(prev);
+            next.add(full.path);
+            return next;
+          });
+          try {
+            const r = await expandNode(full.path);
+            resp = r;
+            expandedCacheRef.current.set(full.path, r.children);
+            // 持久化到 localStorage，跨会话保持
+            if (scanResult) {
+              persistCache(scanResult.root_path, expandedCacheRef.current);
+            }
+          } catch (e) {
+            console.error("展开目录失败:", e);
+            return;
+          } finally {
+            setExpandingPaths((prev) => {
+              const next = new Set(prev);
+              next.delete(full.path);
+              return next;
+            });
           }
-          // 更新当前选中节点以触发重渲染
-          const refreshed = findNodeByPath(tree, full.path);
-          if (refreshed) {
-            setSelectedNode(refreshed);
-            setNavStack(buildNavStack(tree, refreshed.path));
-          }
-        } catch (e) {
-          console.error("展开目录失败:", e);
+        }
+
+        // 克隆整条路径并注入 children，触发 React 重渲染
+        if (scanResult) {
+          const newRoot = injectChildren(
+            scanResult.root_node,
+            full.path,
+            resp.children
+          );
+          setScanResult({ ...scanResult, root_node: newRoot });
         }
       }
     },
-    [syncPriority, patchNodeChildren, scanResult]
+    [syncPriority, injectChildren, scanResult, persistCache]
   );
 
   const handleNavigateTo = useCallback(
@@ -690,6 +765,7 @@ const App: React.FC = () => {
                 breadcrumb={breadcrumb}
                 selectedPath={selectedNode?.path}
                 isLoading={isLiveScanning}
+                expandingPaths={expandingPaths}
                 onNodeSelect={handleNodeSelect}
                 onDrillInto={handleDrillInto}
                 onNavigateTo={handleNavigateTo}
