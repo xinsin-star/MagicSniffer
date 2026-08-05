@@ -27,7 +27,7 @@ struct CacheIndex {
     entries: Vec<ScanCacheMeta>,
 }
 
-fn now_unix() -> i64 {
+pub(crate) fn now_unix() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
@@ -44,7 +44,7 @@ fn cache_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn path_hash(root_path: &str) -> String {
+pub(crate) fn path_hash(root_path: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(root_path.as_bytes());
     let dig = hasher.finalize();

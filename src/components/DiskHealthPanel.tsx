@@ -36,9 +36,6 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
 
   return (
     <div>
-      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">
-        {t("disk.healthTitle")}
-      </h2>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {disks.map((disk) => {
           const statusColor = smartColor(disk.smart_status);

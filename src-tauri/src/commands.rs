@@ -135,6 +135,13 @@ pub async fn start_scan(
         resume_cache.as_ref(),
     )?;
 
+    // 自动保存历史快照（仅完整扫描；断点续扫完成后同样走这里），供「快照对比」使用
+    if !outcome.incomplete {
+        if let Err(e) = crate::snapshots::save_snapshot(&app_handle, &outcome.result, false) {
+            log::warn!("保存扫描快照失败: {e}");
+        }
+    }
+
     let focus = state
         .scan_control
         .priority()
@@ -214,6 +221,28 @@ pub async fn clear_scan_cache(
     app_handle: AppHandle,
 ) -> Result<(), String> {
     crate::cache::clear_cache(&app_handle, root_path.as_deref())
+}
+
+/// 列出所有扫描快照元信息
+#[tauri::command]
+pub async fn list_snapshots(app_handle: AppHandle) -> Result<Vec<SnapshotMeta>, String> {
+    crate::snapshots::list_snapshots(&app_handle)
+}
+
+/// 删除指定扫描快照
+#[tauri::command]
+pub async fn delete_snapshot(id: String, app_handle: AppHandle) -> Result<(), String> {
+    crate::snapshots::delete_snapshot(&app_handle, &id)
+}
+
+/// 对比两个扫描快照（base 为基准/旧，target 为目标/新）
+#[tauri::command]
+pub async fn diff_snapshots(
+    base_id: String,
+    target_id: String,
+    app_handle: AppHandle,
+) -> Result<SnapshotDiff, String> {
+    crate::snapshots::diff_snapshots(&app_handle, &base_id, &target_id)
 }
 
 /// 获取系统已知大目录的快速预览

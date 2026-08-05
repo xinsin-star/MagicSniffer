@@ -37,7 +37,10 @@
     "elapsed": "耗时 {sec}s",
     "startFullScan": "开始完整扫描",
     "scanHomeDir": "扫描用户主目录",
-    "categoryUsage": "分类占用"
+    "categoryUsage": "分类占用",
+  "expand": "展开",
+  "collapse": "收起",
+  "noData": "暂无数据"
   },
   "treemap": {
     "back": "← 上级",
@@ -134,6 +137,8 @@
   "disk": {
     "mountPoints": "磁盘挂载点",
     "healthTitle": "磁盘健康度",
+    "healthTitleDesc": "各磁盘 SMART 健康状态与运行信息",
+    "mountPointsDesc": "各挂载点容量占用一览",
     "used": "已用",
     "free": "可用",
     "healthy": "正常",
@@ -167,5 +172,49 @@
   "menu": {
     "home": "回到首页",
     "settings": "设置…"
+  },
+  "diff": {
+    "title": "快照对比",
+    "back": "← 返回",
+    "open": "快照对比",
+    "base": "基准快照",
+    "target": "目标快照",
+    "selectPlaceholder": "选择快照…",
+    "compare": "对比",
+    "noSnapshots": "暂无快照，请先完成至少两次扫描",
+    "viewTreemap": "树图",
+    "viewList": "列表",
+    "filterAll": "全部",
+    "totalChange": "总变化",
+    "grown": "增大",
+    "shrunk": "减小",
+    "unchanged": "无变化",
+    "added": "新增",
+    "removed": "移除",
+    "addedRemoved": "新增 / 移除",
+    "oldSize": "基准大小",
+    "newSize": "目标大小",
+    "delta": "变化量",
+    "growthRate": "增长率",
+    "categoryBreakdown": "分类变化",
+    "path": "路径",
+    "status": "状态",
+    "diffEmpty": "两次扫描之间没有显著变化",
+    "notSameRoot": "两次快照的扫描根路径不一致，无法对比",
+    "loading": "对比中…",
+    "capturedAt": "快照时间",
+    "rootPath": "扫描路径",
+    "storageHint": "💾 每次完整扫描后自动保存一份快照，同一路径最多保留 10 份，用于与历史占用对比",
+    "needMore": "该扫描路径目前只有 1 份快照，至少需要 2 份才能对比",
+    "selectTitle": "选择快照",
+    "summaryTitle": "变化汇总",
+    "viewTitle": "视图"
+  },
+  "diffStatusLabels": {
+    "Grown": "增大",
+    "Shrunk": "减小",
+    "Unchanged": "无变化",
+    "Added": "新增",
+    "Removed": "移除"
   }
 }

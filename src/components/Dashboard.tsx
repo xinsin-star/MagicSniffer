@@ -1,42 +1,153 @@
 //! Dashboard — 清新自然首页概览
 
-import React from "react";
+import React, { useRef, useState } from "react";
 import type { CategorySummary, DiskMountInfo, PhysicalDiskHealth, ScanCacheMeta, SystemOverview } from "../types";
 import { CATEGORY_COLORS, formatDate, formatSize } from "../types";
+import { getDiskMounts, getPhysicalDiskHealth } from "../hooks/useTauriCommand";
 import { useTranslation } from "../i18n/useTranslation";
 import DiskMountChart from "./DiskMountChart";
 import DiskHealthPanel from "./DiskHealthPanel";
 
+/** 懒加载卡片：默认收缩不加载，点击展开时才请求数据 */
+function LazyDiskCard<T>({
+  title,
+  icon,
+  loader,
+  render,
+}: {
+  title: string;
+  icon: string;
+  loader: () => Promise<T>;
+  render: (data: T) => React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  /** 首次展开后保持挂载，保证收起动画可播放 */
+  const [mounted, setMounted] = useState(false);
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const handleToggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setMounted(true);
+    setOpen(true);
+    if (data === null && !loading) {
+      setLoading(true);
+      setError(null);
+      loader()
+        .then((d) => setData(d))
+        .catch((e) => setError(String(e)))
+        .finally(() => setLoading(false));
+    }
+    // 高度过渡结束后把内容区滚入视野，避免内容在视口下方而"看起来没打开"
+    window.setTimeout(() => {
+      bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 320);
+  };
+
+  return (
+    <div className="mb-8 shrink-0 overflow-hidden rounded-2xl border border-moss-200/70 bg-white/80 shadow-sm backdrop-blur-sm">
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-expanded={open}
+        className="group flex w-full items-center gap-4 px-5 py-4 text-left transition hover:bg-moss-50/50"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-moss-100 to-moss-200/70 text-xl shadow-inner">
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-display text-base font-semibold text-moss-800">{title}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          {loading && (
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-moss-300 border-t-moss-600" />
+          )}
+          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-moss-200 bg-white text-moss-700 transition group-hover:border-moss-300 group-hover:bg-moss-50">
+            <svg
+              className={`h-3 w-3 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+              viewBox="0 0 12 12"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M2 4.5l4 4 4-4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      {/* grid-rows 0fr→1fr 平滑展开/收起动画 */}
+      <div
+        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div
+            ref={bodyRef}
+            className={`border-t border-moss-100/60 bg-sand-50/40 px-5 py-5 transition-all duration-300 ease-out ${
+              open ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
+            }`}
+          >
+            {mounted &&
+              (loading ? (
+                <div className="flex items-center justify-center gap-2.5 py-6 text-sm text-ink-muted">
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-moss-300 border-t-moss-600" />
+                  {t("dashboard.loading")}
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center gap-2 py-5 text-sm text-rose-600">
+                  <span aria-hidden="true">⚠️</span> {error}
+                </div>
+              ) : data ? (
+                render(data)
+              ) : null)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface DashboardProps {
   overview: SystemOverview | null;
   cacheList: ScanCacheMeta[];
-  diskMounts: DiskMountInfo[];
-  diskHealth: PhysicalDiskHealth[];
   onStartScan: () => void;
   onQuickScan: () => void;
   onOpenCacheEntry: (rootPath: string) => void;
   onClearCacheEntry: (rootPath: string) => void;
   onClearAllCache: () => void;
   onResumeScan: () => void;
+  onOpenDiff: () => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
   overview,
   cacheList,
-  diskMounts,
-  diskHealth,
   onStartScan,
   onQuickScan,
   onOpenCacheEntry,
   onClearCacheEntry,
   onClearAllCache,
   onResumeScan,
+  onOpenDiff,
 }) => {
   const { t, locale } = useTranslation();
 
   if (!overview) {
     return (
-      <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">
+      <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10 [scrollbar-gutter:stable]">
         <h1 className="font-display text-3xl font-semibold text-moss-800">MagicSniffer</h1>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-ink-muted">
           <div className="text-4xl opacity-60">🌿</div>
@@ -50,8 +161,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const freePct = ((overview.free_space / overview.total_space) * 100).toFixed(1);
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10">
-      <div className="mb-8 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10 [scrollbar-gutter:stable]">
+      <div className="mb-8 grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label={t("dashboard.totalCapacity")} value={formatSize(overview.total_space)} sub={t("dashboard.available", { size: formatSize(overview.free_space) })} />
         <StatCard label={t("dashboard.usedSpace")} value={formatSize(overview.used_space)} sub={t("dashboard.usedPercent", { pct: usedPct })} />
         <StatCard
@@ -62,20 +173,34 @@ const Dashboard: React.FC<DashboardProps> = ({
         />
       </div>
 
-      {diskHealth.length > 0 && (
-        <div className="mb-8 max-w-4xl">
-          <DiskHealthPanel disks={diskHealth} />
-        </div>
-      )}
+      <LazyDiskCard
+        title={t("disk.healthTitle")}
+        icon="🩺"
+        loader={() => getPhysicalDiskHealth(locale)}
+        render={(health: PhysicalDiskHealth[]) =>
+          health.length > 0 ? (
+            <DiskHealthPanel disks={health} />
+          ) : (
+            <p className="py-4 text-sm text-ink-muted">{t("dashboard.noData")}</p>
+          )
+        }
+      />
 
-      {diskMounts.length > 0 && (
-        <div className="mb-8 max-w-4xl">
-          <DiskMountChart mounts={diskMounts} />
-        </div>
-      )}
+      <LazyDiskCard
+        title={t("disk.mountPoints")}
+        icon="💽"
+        loader={() => getDiskMounts(locale)}
+        render={(mounts: DiskMountInfo[]) =>
+          mounts.length > 0 ? (
+            <DiskMountChart mounts={mounts} />
+          ) : (
+            <p className="py-4 text-sm text-ink-muted">{t("dashboard.noData")}</p>
+          )
+        }
+      />
 
       {cacheList.length > 0 && (
-        <div className="mb-8 max-w-4xl">
+        <div className="mb-8 shrink-0">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold text-moss-800">
               {t("dashboard.historyCache")}
@@ -83,13 +208,22 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ({cacheList.length}/5)
               </span>
             </h2>
-            <button
-              type="button"
-              onClick={onClearAllCache}
-              className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
-            >
-              {t("dashboard.clearAll")}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenDiff}
+                className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs font-medium text-moss-800 transition hover:border-moss-300 hover:bg-moss-50"
+              >
+                {t("diff.open")}
+              </button>
+              <button
+                type="button"
+                onClick={onClearAllCache}
+                className="rounded-lg border border-moss-200 bg-white px-3 py-1.5 text-xs text-ink-soft transition hover:border-rose-300 hover:text-rose-600"
+              >
+                {t("dashboard.clearAll")}
+              </button>
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             {cacheList.map((meta) => (
@@ -145,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       )}
 
-      <div className="mb-8 flex flex-wrap gap-3">
+      <div className="mb-8 flex shrink-0 flex-wrap gap-3">
         <button
           type="button"
           onClick={onStartScan}
@@ -163,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {overview.category_summary.length > 1 && (
-        <div className="max-w-4xl rounded-2xl border border-moss-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-sm">
+        <div className="shrink-0 rounded-2xl border border-moss-200/80 bg-white/70 p-5 shadow-sm backdrop-blur-sm">
           <CategoryBarChart summary={overview.category_summary} />
         </div>
       )}

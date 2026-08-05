@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Dashboard from "./components/Dashboard";
+import DiffView from "./components/DiffView";
 import Treemap from "./components/Treemap";
 import SearchPanel from "./components/SearchPanel";
 import CategoryLegend from "./components/CategoryLegend";
@@ -20,8 +21,6 @@ import {
   setScanPriority,
   stopScan,
   updateTrayMenu,
-  getDiskMounts,
-  getPhysicalDiskHealth,
   checkSmartctl,
   expandNode,
 } from "./hooks/useTauriCommand";
@@ -35,14 +34,12 @@ import type {
   SearchResultItem,
   ScanCacheMeta,
   CachedScan,
-  DiskMountInfo,
-  PhysicalDiskHealth,
   SmartctlStatus,
 } from "./types";
 import { formatSize, formatDate } from "./types";
 import { useTranslation } from "./i18n/useTranslation";
 
-type AppState = "dashboard" | "scanning" | "results";
+type AppState = "dashboard" | "scanning" | "results" | "diff";
 
 function findNodeByPath(root: FileNode, path: string): FileNode | null {
   if (root.path === path) return root;
@@ -96,8 +93,6 @@ const App: React.FC = () => {
   const [cacheMeta, setCacheMeta] = useState<ScanCacheMeta | null>(null);
   const [incomplete, setIncomplete] = useState(false);
   const [cacheList, setCacheList] = useState<ScanCacheMeta[]>([]);
-  const [diskMounts, setDiskMounts] = useState<DiskMountInfo[]>([]);
-  const [diskHealth, setDiskHealth] = useState<PhysicalDiskHealth[]>([]);
   const [smartctlStatus, setSmartctlStatus] = useState<SmartctlStatus | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const scanningRef = React.useRef(false);
@@ -263,23 +258,11 @@ const App: React.FC = () => {
     let cancelled = false;
     const loadOverview = async () => {
       try {
-        const [ov, mounts, health] = await Promise.all([
-          getSystemOverview(locale),
-          getDiskMounts(locale).catch((e) => {
-            console.error("获取磁盘挂载信息失败:", e);
-            return [] as DiskMountInfo[];
-          }),
-          getPhysicalDiskHealth(locale).catch((e) => {
-            console.error("获取物理磁盘健康度失败:", e);
-            return [] as PhysicalDiskHealth[];
-          }),
-        ]);
+        const ov = await getSystemOverview(locale);
         if (cancelled) return;
         setOverview(ov);
-        setDiskMounts(mounts);
-        setDiskHealth(health);
 
-        // 异步检查 smartctl 可用性（不阻塞页面渲染）
+        // 异步检查 smartctl 可用性（不阻塞页面渲染，供设置面板展示）
         checkSmartctl(locale)
           .then(setSmartctlStatus)
           .catch(() => setSmartctlStatus({ available: false }));
@@ -504,6 +487,10 @@ const App: React.FC = () => {
     setLivePreview(null);
     setNavStack([]);
     void setScanPriority(null);
+  }, []);
+
+  const handleOpenDiff = useCallback(() => {
+    setAppState("diff");
   }, []);
 
   const handleClearAllCache = useCallback(async () => {
@@ -744,18 +731,19 @@ const App: React.FC = () => {
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {appState === "dashboard" ? (
+        {appState === "diff" ? (
+          <DiffView onExit={() => setAppState("dashboard")} />
+        ) : appState === "dashboard" ? (
           <Dashboard
             overview={overview}
             cacheList={cacheList}
-            diskMounts={diskMounts}
-            diskHealth={diskHealth}
             onStartScan={handleStartScan}
             onQuickScan={handleQuickScan}
             onOpenCacheEntry={handleOpenCacheEntry}
             onClearCacheEntry={handleClearCacheEntry}
             onClearAllCache={handleClearAllCache}
             onResumeScan={handleResumeScan}
+            onOpenDiff={handleOpenDiff}
           />
         ) : (
           <>

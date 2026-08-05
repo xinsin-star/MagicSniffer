@@ -3,10 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import type { EChartsOption, TreemapSeriesOption } from "echarts";
-import type { FileCategory, FileNode } from "../types";
-import { CATEGORY_COLORS, formatSize } from "../types";
+import type { DiffStatus, FileCategory, FileNode } from "../types";
+import { CATEGORY_COLORS, DIFF_STATUS_COLORS, formatSize } from "../types";
 import { revealInFileManager } from "../hooks/useTauriCommand";
 import { useTranslation } from "../i18n/useTranslation";
+
+/** 差异模式下的节点信息（颜色与 tooltip 共用） */
+export interface DiffInfo {
+  status: DiffStatus;
+  delta: number;
+  growthRate: number | null;
+}
 
 export interface TreemapProps {
   /** 当前可视根节点（已按导航聚焦） */
@@ -19,6 +26,8 @@ export interface TreemapProps {
   isLoading?: boolean;
   /** 正在展开（子目录加载中）的路径集合 */
   expandingPaths?: Set<string>;
+  /** 快照对比模式：path → 差异信息，用于按差异状态染色与 tooltip 显示变化量 */
+  diffMap?: ReadonlyMap<string, DiffInfo>;
   /** 单击选中 */
   onNodeSelect: (node: FileNode) => void;
   /** 双击目录下钻 */
@@ -88,6 +97,9 @@ interface EChartsTreeItem {
   itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: "solid" | "dashed" | "dotted" };
   children?: EChartsTreeItem[];
   label?: { show: boolean; formatter: string };
+  /** 差异模式：供 tooltip 显示变化量 */
+  diffStatus?: DiffStatus;
+  delta?: number;
 }
 
 /** 在块内直接显示「名称\n大小」（避免依赖 tooltip 浮动） */
@@ -98,10 +110,19 @@ function cellLabelText(name: string, size: number, maxLen = 18): string {
   return `${short}\n${sizeText}`;
 }
 
-function toEChartsTree(node: FileNode, depth: number, maxDepth: number): EChartsTreeItem {
+function toEChartsTree(
+  node: FileNode,
+  depth: number,
+  maxDepth: number,
+  diffMap?: ReadonlyMap<string, DiffInfo>,
+): EChartsTreeItem {
   // 未展开的目录：用虚线描边 + 更小宽度，视觉上提示"可双击加载"
   const isCollapsibleDir = node.is_dir && (!node.children || node.children.length === 0);
-  const color = colorForNode(node.path, node.category);
+  const diff = diffMap?.get(node.path);
+  const color =
+    diff && diff.status !== "Unchanged"
+      ? DIFF_STATUS_COLORS[diff.status]
+      : colorForNode(node.path, node.category);
   const item: EChartsTreeItem = {
     name: node.name || node.path,
     value: Math.max(node.size, 1),
@@ -119,6 +140,8 @@ function toEChartsTree(node: FileNode, depth: number, maxDepth: number): ECharts
       show: true,
       formatter: `{name|${(node.name || node.path).length > 18 ? `${(node.name || node.path).slice(0, 16)}…` : (node.name || node.path)}}\n{size|${formatSize(node.size)}}`,
     },
+    diffStatus: diff?.status,
+    delta: diff?.delta,
   };
 
   if (node.is_dir && node.children && node.children.length > 0 && depth < maxDepth) {
@@ -126,7 +149,7 @@ function toEChartsTree(node: FileNode, depth: number, maxDepth: number): ECharts
       .filter((c) => c.size > 0)
       .sort((a, b) => b.size - a.size)
       .slice(0, 80)
-      .map((c) => toEChartsTree(c, depth + 1, maxDepth));
+      .map((c) => toEChartsTree(c, depth + 1, maxDepth, diffMap));
     if (kids.length > 0) item.children = kids;
   }
 
@@ -199,6 +222,7 @@ const Treemap: React.FC<TreemapProps> = ({
   selectedPath,
   isLoading = false,
   expandingPaths,
+  diffMap,
   onNodeSelect,
   onDrillInto,
   onNavigateTo,
@@ -233,10 +257,10 @@ const Treemap: React.FC<TreemapProps> = ({
         .filter((c) => c.size > 0)
         .sort((a, b) => b.size - a.size)
         .slice(0, 120)
-        .map((c) => toEChartsTree(c, 0, 2));
+        .map((c) => toEChartsTree(c, 0, 2, diffMap));
     }
-    return [toEChartsTree(data, 0, 1)];
-  }, [data]);
+    return [toEChartsTree(data, 0, 1, diffMap)];
+  }, [data, diffMap]);
 
   const option: EChartsOption = useMemo(() => {
     const series: TreemapSeriesOption = {
@@ -389,9 +413,14 @@ const Treemap: React.FC<TreemapProps> = ({
           if (!d) return "";
           const cat = t(`categoryLabels.${d.category}` as Parameters<typeof t>[0]);
           const typeLabel = d.isDir ? t("treemap.directory") : t("treemap.file");
+          const deltaLine =
+            d.diffStatus && d.diffStatus !== "Unchanged" && typeof d.delta === "number"
+              ? `<div style="font-weight:600;color:${d.delta >= 0 ? "#2ecc71" : "#e74c3c"}">${d.delta >= 0 ? "▲" : "▼"} ${formatSize(Math.abs(d.delta))}</div>`
+              : "";
           return [
             `<div style="font-weight:600;margin-bottom:4px">${d.name}</div>`,
             `<div>${formatSize(d.value)}</div>`,
+            deltaLine,
             `<div style="opacity:.7;margin-top:2px">${cat} · ${typeLabel}</div>`,
             `<div style="opacity:.55;font-size:11px;margin-top:4px;max-width:280px;word-break:break-all">${d.path}</div>`,
           ].join("");
@@ -633,6 +662,20 @@ const Treemap: React.FC<TreemapProps> = ({
         {isLoading && data && (
           <div className="pointer-events-none absolute top-3 right-3 rounded-full bg-moss-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm">
             {t("treemap.scanningBadge")}
+          </div>
+        )}
+
+        {diffMap && diffMap.size > 0 && (
+          <div className="pointer-events-none absolute top-3 right-3 z-[2] flex flex-col gap-1.5 rounded-xl border border-moss-200/80 bg-white/85 px-3 py-2 text-[11px] font-medium text-ink-soft shadow-sm backdrop-blur-sm">
+            {(["Grown", "Shrunk", "Added", "Removed"] as DiffStatus[]).map((s) => (
+              <div key={s} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-sm"
+                  style={{ backgroundColor: DIFF_STATUS_COLORS[s] }}
+                />
+                {t(`diffStatusLabels.${s}` as Parameters<typeof t>[0])}
+              </div>
+            ))}
           </div>
         )}
 

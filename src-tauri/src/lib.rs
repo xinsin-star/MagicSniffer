@@ -11,6 +11,7 @@ pub mod risk;
 pub mod scan_control;
 pub mod scanner;
 pub mod search;
+pub mod snapshots;
 
 use commands::AppState;
 use scan_control::ScanControl;
@@ -97,6 +98,9 @@ pub fn run() {
             commands::load_scan_cache,
             commands::list_scan_caches,
             commands::clear_scan_cache,
+            commands::list_snapshots,
+            commands::delete_snapshot,
+            commands::diff_snapshots,
             commands::set_scan_priority,
             commands::stop_scan,
             commands::update_tray_menu,

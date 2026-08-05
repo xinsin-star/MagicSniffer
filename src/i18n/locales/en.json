@@ -37,7 +37,10 @@
     "elapsed": "{sec}s elapsed",
     "startFullScan": "Start full scan",
     "scanHomeDir": "Scan home directory",
-    "categoryUsage": "Category breakdown"
+    "categoryUsage": "Category breakdown",
+  "expand": "Expand",
+  "collapse": "Collapse",
+  "noData": "No data"
   },
   "treemap": {
     "back": "← Up",
@@ -134,6 +137,8 @@
   "disk": {
     "mountPoints": "Disk Mounts",
     "healthTitle": "Disk Health",
+    "healthTitleDesc": "SMART health and runtime info of each disk",
+    "mountPointsDesc": "Capacity usage across mount points",
     "used": "Used",
     "free": "Free",
     "healthy": "Healthy",
@@ -167,5 +172,49 @@
   "menu": {
     "home": "Home",
     "settings": "Settings…"
+  },
+  "diff": {
+    "title": "Snapshot Diff",
+    "back": "← Back",
+    "open": "Snapshot Diff",
+    "base": "Base snapshot",
+    "target": "Target snapshot",
+    "selectPlaceholder": "Select a snapshot…",
+    "compare": "Compare",
+    "noSnapshots": "No snapshots yet. Complete at least two scans first",
+    "viewTreemap": "Treemap",
+    "viewList": "List",
+    "filterAll": "All",
+    "totalChange": "Total change",
+    "grown": "Grown",
+    "shrunk": "Shrunk",
+    "unchanged": "Unchanged",
+    "added": "Added",
+    "removed": "Removed",
+    "addedRemoved": "Added / Removed",
+    "oldSize": "Base size",
+    "newSize": "Target size",
+    "delta": "Delta",
+    "growthRate": "Growth rate",
+    "categoryBreakdown": "Change by category",
+    "path": "Path",
+    "status": "Status",
+    "diffEmpty": "No significant change between the two snapshots",
+    "notSameRoot": "The two snapshots must share the same scan root path",
+    "loading": "Comparing…",
+    "capturedAt": "Captured at",
+    "rootPath": "Scan path",
+    "storageHint": "💾 A snapshot is auto-saved after each full scan (up to 10 per path) for comparing usage over time",
+    "needMore": "This scan path only has 1 snapshot; at least 2 are needed to compare",
+    "selectTitle": "Snapshots",
+    "summaryTitle": "Summary",
+    "viewTitle": "View"
+  },
+  "diffStatusLabels": {
+    "Grown": "Grown",
+    "Shrunk": "Shrunk",
+    "Unchanged": "Unchanged",
+    "Added": "Added",
+    "Removed": "Removed"
   }
 }
