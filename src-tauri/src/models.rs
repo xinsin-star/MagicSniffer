@@ -504,3 +504,109 @@ pub struct ExpandNodeResponse {
     /// 子项数量是否超过上限被截断
     pub truncated: bool,
 }
+
+// ─── 扫描快照与对比 ─────────────────────────────────────────────────────────────
+
+/// 节点差异状态
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum DiffStatus {
+    /// 🟢 增大
+    Grown,
+    /// 🔴 减小
+    Shrunk,
+    /// ⚪ 无变化
+    Unchanged,
+    /// 新增（旧快照中不存在）
+    Added,
+    /// 移除（旧快照中有，新快照中已消失）
+    Removed,
+}
+
+/// 快照元信息（不含完整树，供列表与选择器展示）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotMeta {
+    /// 快照 id（文件名字干 `{path_hash}_{timestamp}`）
+    pub id: String,
+    /// 扫描根路径
+    pub root_path: String,
+    /// 捕获时间（Unix 秒）
+    pub captured_at: i64,
+    /// 根节点总大小（字节）
+    pub total_size: u64,
+    /// 文件数
+    pub total_files: u64,
+    /// 目录数
+    pub total_dirs: u64,
+    /// 扫描耗时（毫秒）
+    pub elapsed_ms: u64,
+    /// 是否未完成
+    #[serde(default)]
+    pub incomplete: bool,
+}
+
+/// 磁盘上的快照条目 = 元信息 + 完整扫描结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotEntry {
+    pub meta: SnapshotMeta,
+    pub result: ScanResult,
+}
+
+/// 单个节点的差异（树形，与 FileNode 同构）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileNodeDiff {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub category: FileCategory,
+    /// 基准（旧）大小
+    pub old_size: u64,
+    /// 目标（新）大小
+    pub new_size: u64,
+    /// 变化量（new - old，可正可负）
+    pub delta: i64,
+    /// 增长率（百分比）；old==0 时为 None
+    pub growth_rate: Option<f64>,
+    pub status: DiffStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub children: Option<Vec<FileNodeDiff>>,
+}
+
+/// 分类差异
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategoryDiff {
+    pub category: FileCategory,
+    pub old_size: u64,
+    pub new_size: u64,
+    pub delta: i64,
+    pub growth_rate: Option<f64>,
+    pub status: DiffStatus,
+}
+
+/// 差异汇总统计（前端卡片用）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffSummary {
+    pub total_old_size: u64,
+    pub total_new_size: u64,
+    pub total_delta: i64,
+    pub grown_count: u64,
+    pub shrunk_count: u64,
+    pub unchanged_count: u64,
+    pub added_count: u64,
+    pub removed_count: u64,
+    /// 所有正 delta 之和
+    pub grown_bytes: u64,
+    /// 所有负 delta 绝对值之和
+    pub shrunk_bytes: u64,
+}
+
+/// diff_snapshots 命令的完整响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiff {
+    pub base: SnapshotMeta,
+    pub target: SnapshotMeta,
+    /// 对比后的根节点差异树
+    pub root: FileNodeDiff,
+    /// 分类差异（按 |delta| 降序）
+    pub category_diff: Vec<CategoryDiff>,
+    pub summary: DiffSummary,
+}

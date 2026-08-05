@@ -53,9 +53,6 @@ const DiskMountChart: React.FC<DiskMountChartProps> = ({ mounts }) => {
 
   return (
     <div>
-      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">
-        {t("disk.mountPoints")}
-      </h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {charts.map(({ mount, option, pct, usedSpace }) => {
           const kindLabel =

@@ -199,6 +199,78 @@ export interface ScanCacheMeta {
   incomplete?: boolean;
 }
 
+// ─── 扫描快照与对比 ──────────────────────────────────────────────────────────
+
+export type DiffStatus = "Grown" | "Shrunk" | "Unchanged" | "Added" | "Removed";
+
+/** 扫描快照元信息（不含完整树） */
+export interface SnapshotMeta {
+  id: string;
+  root_path: string;
+  captured_at: number;
+  total_size: number;
+  total_files: number;
+  total_dirs: number;
+  elapsed_ms: number;
+  incomplete: boolean;
+}
+
+/** 单节点差异（树形，与 FileNode 同构） */
+export interface DiffNode {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  category: FileCategory;
+  old_size: number;
+  new_size: number;
+  delta: number;
+  growth_rate: number | null;
+  status: DiffStatus;
+  children?: DiffNode[];
+}
+
+/** 分类差异 */
+export interface CategoryDiff {
+  category: FileCategory;
+  old_size: number;
+  new_size: number;
+  delta: number;
+  growth_rate: number | null;
+  status: DiffStatus;
+}
+
+/** 差异汇总统计 */
+export interface DiffSummary {
+  total_old_size: number;
+  total_new_size: number;
+  total_delta: number;
+  grown_count: number;
+  shrunk_count: number;
+  unchanged_count: number;
+  added_count: number;
+  removed_count: number;
+  grown_bytes: number;
+  shrunk_bytes: number;
+}
+
+/** diff_snapshots 命令响应 */
+export interface SnapshotDiff {
+  base: SnapshotMeta;
+  target: SnapshotMeta;
+  root: DiffNode;
+  category_diff: CategoryDiff[];
+  summary: DiffSummary;
+}
+
+/** 差异状态配色（语言无关，前端展示用） */
+export const DIFF_STATUS_COLORS: Record<DiffStatus, string> = {
+  Grown: "#2ecc71",
+  Shrunk: "#e74c3c",
+  Unchanged: "#a8b2ac",
+  Added: "#27ae60",
+  Removed: "#c0392b",
+};
+
 // ─── 磁盘挂载与健康度 ──────────────────────────────────────────────────────────
 
 export interface SmartAttribute {

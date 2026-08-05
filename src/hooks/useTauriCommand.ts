@@ -19,6 +19,8 @@ import type {
   PhysicalDiskHealth,
   SmartctlStatus,
   ExpandNodeResponse,
+  SnapshotMeta,
+  SnapshotDiff,
 } from "../types";
 
 /**
@@ -76,6 +78,21 @@ export async function listScanCaches(): Promise<ScanCacheMeta[]> {
 /** 清除扫描缓存；不传则清空全部 */
 export async function clearScanCache(rootPath?: string): Promise<void> {
   return invoke("clear_scan_cache", { rootPath: rootPath ?? null });
+}
+
+/** 列出所有扫描快照元信息 */
+export async function listSnapshots(): Promise<SnapshotMeta[]> {
+  return invoke<SnapshotMeta[]>("list_snapshots");
+}
+
+/** 删除指定扫描快照 */
+export async function deleteSnapshot(id: string): Promise<void> {
+  return invoke("delete_snapshot", { id });
+}
+
+/** 对比两个扫描快照（base 为基准/旧，target 为目标/新） */
+export async function diffSnapshots(baseId: string, targetId: string): Promise<SnapshotDiff> {
+  return invoke<SnapshotDiff>("diff_snapshots", { baseId, targetId });
 }
 
 /**
