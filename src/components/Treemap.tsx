@@ -17,6 +17,8 @@ export interface TreemapProps {
   selectedPath?: string;
   /** 是否扫描中 */
   isLoading?: boolean;
+  /** 正在展开（子目录加载中）的路径集合 */
+  expandingPaths?: Set<string>;
   /** 单击选中 */
   onNodeSelect: (node: FileNode) => void;
   /** 双击目录下钻 */
@@ -83,11 +85,22 @@ interface EChartsTreeItem {
   isDir: boolean;
   category: FileCategory;
   riskLevel: string;
-  itemStyle: { color: string; borderColor: string; borderWidth: number };
+  itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: "solid" | "dashed" | "dotted" };
   children?: EChartsTreeItem[];
+  label?: { show: boolean; formatter: string };
+}
+
+/** 在块内直接显示「名称\n大小」（避免依赖 tooltip 浮动） */
+function cellLabelText(name: string, size: number, maxLen = 18): string {
+  const safeName = name || "";
+  const short = safeName.length > maxLen ? `${safeName.slice(0, maxLen - 2)}…` : safeName;
+  const sizeText = formatSize(size);
+  return `${short}\n${sizeText}`;
 }
 
 function toEChartsTree(node: FileNode, depth: number, maxDepth: number): EChartsTreeItem {
+  // 未展开的目录：用虚线描边 + 更小宽度，视觉上提示"可双击加载"
+  const isCollapsibleDir = node.is_dir && (!node.children || node.children.length === 0);
   const color = colorForNode(node.path, node.category);
   const item: EChartsTreeItem = {
     name: node.name || node.path,
@@ -98,8 +111,13 @@ function toEChartsTree(node: FileNode, depth: number, maxDepth: number): ECharts
     riskLevel: node.risk_level,
     itemStyle: {
       color,
-      borderColor: "#ffffff",
-      borderWidth: 2,
+      borderColor: isCollapsibleDir ? "#7cb798" : "#ffffff",
+      borderWidth: isCollapsibleDir ? 2 : 2,
+      borderType: isCollapsibleDir ? "dashed" : "solid",
+    },
+    label: {
+      show: true,
+      formatter: `{name|${(node.name || node.path).length > 18 ? `${(node.name || node.path).slice(0, 16)}…` : (node.name || node.path)}}\n{size|${formatSize(node.size)}}`,
     },
   };
 
@@ -180,6 +198,7 @@ const Treemap: React.FC<TreemapProps> = ({
   breadcrumb,
   selectedPath,
   isLoading = false,
+  expandingPaths,
   onNodeSelect,
   onDrillInto,
   onNavigateTo,
@@ -242,12 +261,7 @@ const Treemap: React.FC<TreemapProps> = ({
             value?: number;
             treePathInfo?: unknown[];
           };
-          const name = p.name ?? "";
-          const size = formatSize(Number(p.value) || 0);
-          // 过长名称截断
-          const short =
-            name.length > 18 ? `${name.slice(0, 16)}…` : name;
-          return `{name|${short}}\n{size|${size}}`;
+          return cellLabelText(p.name ?? "", Number(p.value) || 0);
         },
         rich: {
           name: {
@@ -299,6 +313,7 @@ const Treemap: React.FC<TreemapProps> = ({
         {
           itemStyle: { borderWidth: 0, gapWidth: 3 },
           upperLabel: { show: false },
+          label: { show: false },
         },
         {
           itemStyle: { borderWidth: 2, gapWidth: 2, borderColor: "#fff" },
@@ -320,6 +335,34 @@ const Treemap: React.FC<TreemapProps> = ({
           label: {
             show: true,
             fontSize: 11,
+            formatter: (params: unknown) => {
+              const p = params as { name?: string; value?: number };
+              const name = p.name ?? "";
+              const size = formatSize(Number(p.value) || 0);
+              const short = name.length > 18 ? `${name.slice(0, 16)}…` : name;
+              return `{name|${short}}\n{size|${size}}`;
+            },
+            rich: {
+              name: {
+                fontSize: 11,
+                fontWeight: 600,
+                fontFamily: "Figtree, PingFang SC, sans-serif",
+                color: "#1a2420",
+                lineHeight: 16,
+                align: "center",
+                textShadowColor: "rgba(255,255,255,0.7)",
+                textShadowBlur: 3,
+              },
+              size: {
+                fontSize: 9,
+                fontFamily: "IBM Plex Mono, monospace",
+                color: "rgba(26,36,32,0.72)",
+                lineHeight: 13,
+                align: "center",
+                textShadowColor: "rgba(255,255,255,0.65)",
+                textShadowBlur: 2,
+              },
+            },
           },
         },
       ],
@@ -590,6 +633,21 @@ const Treemap: React.FC<TreemapProps> = ({
         {isLoading && data && (
           <div className="pointer-events-none absolute top-3 right-3 rounded-full bg-moss-600/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm">
             {t("treemap.scanningBadge")}
+          </div>
+        )}
+
+        {expandingPaths && expandingPaths.size > 0 && (
+          <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1">
+            {Array.from(expandingPaths).slice(0, 3).map((p) => (
+              <div
+                key={p}
+                className="rounded-full bg-moss-700/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm"
+                title={p}
+              >
+                <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                {t("treemap.loadingChildren")}: {p.split("/").filter(Boolean).pop() || p}
+              </div>
+            ))}
           </div>
         )}
 

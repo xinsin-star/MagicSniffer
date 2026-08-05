@@ -54,7 +54,9 @@
     "zoomIn": "放大",
     "resetView": "重置",
     "resetViewTitle": "重置视图",
-    "scanningOverlay": "正在扫描磁盘空间…"
+    "scanningOverlay": "正在扫描磁盘空间…",
+    "expandHint": "双击展开",
+    "loadingChildren": "加载子项中…"
   },
   "search": {
     "placeholder": "搜索文件或目录…",

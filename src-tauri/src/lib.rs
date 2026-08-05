@@ -89,6 +89,7 @@ pub fn run() {
             commands::start_scan,
             commands::quick_scan_known_dirs,
             commands::search_files,
+            commands::expand_node,
             commands::assess_delete_risk,
             commands::assess_batch_delete_risk,
             commands::reveal_in_file_manager,

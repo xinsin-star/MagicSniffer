@@ -27,6 +27,21 @@ use crate::models::*;
 use crate::risk::RiskAssessor;
 use crate::scan_control::{path_is_under, ScanControl};
 
+/// 懒加载展开时快速聚合目录大小（用 WalkDir，不跟随符号链接）。
+/// 与首次扫描的 Phase 1 聚合口径一致，保证树图比例正确。
+fn calculate_dir_size_fast(path: &Path) -> u64 {
+    let mut total: u64 = 0;
+    for entry in WalkDir::new(path).follow_links(false) {
+        let Ok(entry) = entry else { continue };
+        if !entry.file_type().is_dir() {
+            if let Ok(meta) = entry.metadata() {
+                total += meta.len();
+            }
+        }
+    }
+    total
+}
+
 /// 扁平化的文件条目 — Phase 1 的产物。
 /// `category` / `risk_level` 在遍历时一次性预计算，避免后续重复分类。
 #[derive(Debug, Clone)]
@@ -204,7 +219,9 @@ impl Scanner {
                 extension: None,
             })
         } else {
-            self.build_tree_from_flat(path, &walk.flat_entries, &index, 3)
+            // 初始只构建根级目录（max_depth=1），深层目录由前端双击时
+            // 通过 expand_node 命令懒加载，保证首页秒开
+            self.build_tree_from_flat(path, &walk.flat_entries, &index, 1)
         };
 
         // 合并续扫时已缓存的已完成子树
@@ -268,6 +285,83 @@ impl Scanner {
             pending_paths: walk.pending_paths,
             completed_paths: walk.completed_paths,
         })
+    }
+
+    /// 懒加载展开：读取指定目录的直接子项（文件 + 子目录），用于双击下钻。
+    ///
+    /// - 文件 size = 文件实际大小
+    /// - 子目录 size = 递归聚合（与首次扫描一致），保证树图按比例绘制
+    /// - 每个子目录 children = None（表示尚未展开，再次双击才加载）
+    /// - 子项按 size 降序排列，超过 MAX_EXPAND 子项时截断
+    pub fn expand_directory(&self, path: &Path) -> Result<(Vec<FileNode>, bool), String> {
+        const MAX_EXPAND: usize = 5000;
+
+        if !path.exists() {
+            return Err(format!("路径不存在: {}", path.display()));
+        }
+        if !path.is_dir() {
+            return Err(format!("不是目录: {}", path.display()));
+        }
+
+        let entries = fs::read_dir(path).map_err(|e| format!("读取目录失败: {e}"))?;
+
+        let mut nodes: Vec<FileNode> = entries
+            .filter_map(|e| e.ok())
+            .filter_map(|entry| {
+                let entry_path = entry.path();
+                let metadata = entry.metadata().ok()?;
+                let is_dir = metadata.is_dir();
+                let name = entry.file_name().to_string_lossy().to_string();
+
+                // 目录递归聚合大小；文件直接用 len()；符号链接跳过
+                if metadata.is_symlink() {
+                    return None;
+                }
+                let size = if is_dir {
+                    calculate_dir_size_fast(&entry_path)
+                } else {
+                    metadata.len()
+                };
+
+                let category = self.categorizer.categorize(&entry_path, &name);
+                let risk_level = self.risk_assessor.assess(&entry_path, &name, &category);
+                let modified_at = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0);
+                let extension = if is_dir {
+                    None
+                } else {
+                    Path::new(&name)
+                        .extension()
+                        .map(|e| e.to_string_lossy().to_lowercase())
+                };
+
+                Some(FileNode {
+                    name,
+                    path: entry_path.to_string_lossy().to_string(),
+                    size,
+                    is_dir,
+                    category,
+                    risk_level,
+                    children: None, // 子目录暂不展开，再次双击时加载
+                    modified_at,
+                    extension,
+                })
+            })
+            .collect();
+
+        let truncated = nodes.len() > MAX_EXPAND;
+        if truncated {
+            nodes.sort_by(|a, b| b.size.cmp(&a.size));
+            nodes.truncate(MAX_EXPAND);
+        } else {
+            nodes.sort_by(|a, b| b.size.cmp(&a.size));
+        }
+
+        Ok((nodes, truncated))
     }
 
     /// Phase 1 — 优先级队列遍历顶级目录（支持聚焦优先 / 取消断点）
@@ -1126,7 +1220,9 @@ impl Scanner {
                 is_dir: entry.is_dir,
                 category: entry.category.clone(),
                 risk_level: entry.risk_level.clone(),
-                children: if entry.is_dir { Some(vec![]) } else { None },
+                // 目录 children=None 表示「尚未展开，可双击加载」
+                // 文件 children=None 表示「叶节点」
+                children: None,
                 modified_at: 0,
                 extension: entry.ext_lower.clone(),
             };

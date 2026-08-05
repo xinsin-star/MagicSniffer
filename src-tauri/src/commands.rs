@@ -292,6 +292,30 @@ pub async fn search_files(
     state.search_engine.search(request)
 }
 
+// ─── 懒加载展开 ─────────────────────────────────────────────────────────────────
+
+/// 展开目录（双击下钻时按需加载直接子项）
+#[tauri::command]
+pub async fn expand_node(
+    req: ExpandNodeRequest,
+    state: State<'_, AppState>,
+) -> Result<ExpandNodeResponse, String> {
+    let expanded = crate::scanner::expand_user_path(&req.path);
+    let path = Path::new(&expanded);
+    let (children, truncated) = state.scanner.expand_directory(path)?;
+    log::info!(
+        "expand_node: 展开 {} → {} 个子项 (截断: {})",
+        expanded,
+        children.len(),
+        truncated
+    );
+    Ok(ExpandNodeResponse {
+        path: req.path,
+        children,
+        truncated,
+    })
+}
+
 // ─── 风险评估 ──────────────────────────────────────────────────────────────────
 
 /// 获取删除指定路径的风险评估
