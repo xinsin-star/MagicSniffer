@@ -1,6 +1,6 @@
 [package]
 name = "magicsniffer"
-version = "1.0.1"
+version = "1.0.2"
 description = "macOS 存储空间可视化分析工具 - 类似 SpaceSniffer 的磁盘空间统计器"
 authors = ["xinsin"]
 edition = "2021"
