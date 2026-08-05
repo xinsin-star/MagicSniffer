@@ -85,6 +85,16 @@ Uses SVG with 1000x1000 viewBox. Percentage-based coordinates are multiplied by 
 ### Permission model
 Tauri 2.0 capability-based permissions in `src-tauri/capabilities/default.json`. Add required permissions there when using new Tauri plugins.
 
+## Release 提版流程
+
+当用户要求提版/发版/发布新版本时，必须遵循 `.claude/skills/release.md` 全流程：
+1. 确认版本号（默认按 git log 变更类型推断 minor/patch/major）
+2. `bash scripts/bump-version.sh <版本号>` 统一更新三处版本号
+3. 在 `RELEASES.md` **最顶部**写入本次发布说明（图标模板见 skill）
+4. 提交并推送 `release` 分支
+
+CI（`.github/workflows/release.yml`）会自动按版本号从 `RELEASES.md` 提取发布说明作为 GitHub Release 正文。
+
 ## Git Commit Convention
 
 所有 commit message 必须遵循以下格式：

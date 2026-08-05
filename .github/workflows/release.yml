@@ -151,6 +151,16 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Extract release notes
+        id: notes
+        run: |
+          BODY="$(bash scripts/build-release-body.sh "${{ steps.version.outputs.version }}")"
+          {
+            echo "body<<BODY_EOF"
+            printf '%s\n' "$BODY"
+            echo "BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Download macOS (Apple Silicon) artifacts
         uses: actions/download-artifact@v4
         with:
@@ -209,19 +219,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.tag }}
-          body: |
-            ## MagicSniffer ${{ steps.version.outputs.tag }}
-
-            构建产物：
-            - `MagicSniffer_${{ steps.version.outputs.version }}_aarch64.dmg` — macOS Apple Silicon（临时签名）
-            - `MagicSniffer_${{ steps.version.outputs.version }}_x64.dmg` — macOS Intel（临时签名）
-            - `MagicSniffer_${{ steps.version.outputs.version }}_x64.msi` — Windows 安装包
-            - `magicsniffer_${{ steps.version.outputs.version }}_amd64.AppImage` — Linux AppImage
-            - `magicsniffer_${{ steps.version.outputs.version }}_amd64.deb` — Linux DEB 包
-
-            > macOS 使用 ad-hoc 临时签名，首次打开时如提示"无法验证开发者"，请在 Finder 中右键 App → 打开 即可运行。
-
-            > 发布说明待补充。
+          body: ${{ steps.notes.outputs.body }}
           files: artifacts/*
           draft: false
           prerelease: false
