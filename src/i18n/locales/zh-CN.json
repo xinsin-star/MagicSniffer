@@ -122,10 +122,6 @@
   },
   "settings": {
     "title": "设置",
-    "language": "语言",
-    "languageDesc": "切换界面显示语言",
-    "zhCN": "中文",
-    "en": "English",
     "close": "关闭",
     "diskHealth": "磁盘健康度",
     "smartctlInstalled": "已安装，NVMe SMART 数据正常获取",

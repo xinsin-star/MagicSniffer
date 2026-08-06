@@ -861,69 +861,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
   setLocale,
   onOpenSettings,
 }) => {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!menuOpen) return;
-    const close = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [menuOpen]);
-
   return (
     <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
-      {/* App title + dropdown */}
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex items-center gap-1 font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
-        >
-          {t("app.title")}
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            className="mt-0.5 text-moss-400"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        {menuOpen && (
-          <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md">
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
-              onClick={() => {
-                setMenuOpen(false);
-                onGoHome();
-              }}
-            >
-              <span className="text-base">🏠</span>
-              {t("menu.home")}
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
-              onClick={() => {
-                setMenuOpen(false);
-                onOpenSettings();
-              }}
-            >
-              <span className="text-base">⚙</span>
-              {t("menu.settings")}
-            </button>
-          </div>
-        )}
-      </div>
+      {/* App 标题：点击回首页 */}
+      <button
+        type="button"
+        onClick={onGoHome}
+        title={t("menu.home")}
+        className="font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
+      >
+        {t("app.title")}
+      </button>
 
       {overview && (
         <span className="hidden font-mono text-xs text-ink-muted sm:inline">
@@ -955,6 +903,29 @@ const Toolbar: React.FC<ToolbarProps> = ({
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
+        {/* 设置 */}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          title={t("menu.settings")}
+          aria-label={t("menu.settings")}
+          className="rounded-lg border border-moss-200 bg-white p-1.5 text-ink-soft transition hover:bg-moss-50"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </button>
         {/* Language toggle */}
         <button
           type="button"

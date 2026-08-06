@@ -122,10 +122,6 @@
   },
   "settings": {
     "title": "Settings",
-    "language": "Language",
-    "languageDesc": "Switch interface language",
-    "zhCN": "中文",
-    "en": "English",
     "close": "Close",
     "diskHealth": "Disk Health",
     "smartctlInstalled": "Installed — NVMe SMART data available",

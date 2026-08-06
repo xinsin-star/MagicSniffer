@@ -1,6 +1,5 @@
 import React, { useEffect, useRef } from "react";
 import { useTranslation } from "../i18n/useTranslation";
-import type { Locale } from "../i18n/types";
 import type { SmartctlStatus } from "../types";
 
 interface SettingsModalProps {
@@ -10,7 +9,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }) => {
-  const { t, locale, setLocale } = useTranslation();
+  const { t } = useTranslation();
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,11 +26,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose();
   };
-
-  const languages: { value: Locale; label: string }[] = [
-    { value: "zh-CN", label: t("settings.zhCN") },
-    { value: "en", label: t("settings.en") },
-  ];
 
   return (
     <div
@@ -56,32 +50,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
+              aria-hidden="true"
             >
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
-        </div>
-
-        {/* Language */}
-        <div className="mb-4">
-          <div className="mb-2 text-sm font-medium text-ink">{t("settings.language")}</div>
-          <p className="mb-2 text-xs text-ink-soft">{t("settings.languageDesc")}</p>
-          <div className="flex gap-2">
-            {languages.map((lang) => (
-              <button
-                key={lang.value}
-                type="button"
-                onClick={() => setLocale(lang.value)}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                  locale === lang.value
-                    ? "border-moss-400 bg-moss-100 text-moss-800"
-                    : "border-moss-200 bg-white text-ink-soft hover:bg-moss-50"
-                }`}
-              >
-                {lang.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Disk Health (smartctl) */}
