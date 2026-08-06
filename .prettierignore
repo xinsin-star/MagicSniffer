@@ -1,0 +1,10 @@
+# 构建产物 / 生成文件
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+src-tauri/icons
+
+# 锁文件 / 二进制
+*.lock
+bun.lockb

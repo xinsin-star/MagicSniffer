@@ -40,10 +40,30 @@ export interface TreemapProps {
 
 /** 自然色系扩展色板，避免同分类色块过于单调 */
 const NATURAL_PALETTE = [
-  "#7cb798", "#6fa0c4", "#d4a574", "#89a07a", "#6db3a8", "#c9985a",
-  "#6b93b8", "#c07a74", "#7f9bb0", "#6fa08e", "#a8c07a", "#8bb8a0",
-  "#b89a6e", "#79a8c4", "#9bb87a", "#c48a78", "#6a9e8a", "#8a9ec0",
-  "#d4b07a", "#7aada0", "#a07a8e", "#8cba8c", "#c4a090", "#70a8b8",
+  "#7cb798",
+  "#6fa0c4",
+  "#d4a574",
+  "#89a07a",
+  "#6db3a8",
+  "#c9985a",
+  "#6b93b8",
+  "#c07a74",
+  "#7f9bb0",
+  "#6fa08e",
+  "#a8c07a",
+  "#8bb8a0",
+  "#b89a6e",
+  "#79a8c4",
+  "#9bb87a",
+  "#c48a78",
+  "#6a9e8a",
+  "#8a9ec0",
+  "#d4b07a",
+  "#7aada0",
+  "#a07a8e",
+  "#8cba8c",
+  "#c4a090",
+  "#70a8b8",
 ];
 
 function hashString(s: string): number {
@@ -57,18 +77,12 @@ function hashString(s: string): number {
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
   const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
-  return `#${[clamp(r), clamp(g), clamp(b)]
-    .map((n) => n.toString(16).padStart(2, "0"))
-    .join("")}`;
+  return `#${[clamp(r), clamp(g), clamp(b)].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
 }
 
 /** 基于路径哈希，在分类色附近做明暗偏移，使相邻块更易区分 */
@@ -94,7 +108,12 @@ interface EChartsTreeItem {
   isDir: boolean;
   category: FileCategory;
   riskLevel: string;
-  itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: "solid" | "dashed" | "dotted" };
+  itemStyle: {
+    color: string;
+    borderColor: string;
+    borderWidth: number;
+    borderType?: "solid" | "dashed" | "dotted";
+  };
   children?: EChartsTreeItem[];
   label?: { show: boolean; formatter: string };
   /** 差异模式：供 tooltip 显示变化量 */
@@ -138,7 +157,7 @@ function toEChartsTree(
     },
     label: {
       show: true,
-      formatter: `{name|${(node.name || node.path).length > 18 ? `${(node.name || node.path).slice(0, 16)}…` : (node.name || node.path)}}\n{size|${formatSize(node.size)}}`,
+      formatter: `{name|${(node.name || node.path).length > 18 ? `${(node.name || node.path).slice(0, 16)}…` : node.name || node.path}}\n{size|${formatSize(node.size)}}`,
     },
     diffStatus: diff?.status,
     delta: diff?.delta,
@@ -475,10 +494,7 @@ const Treemap: React.FC<TreemapProps> = ({
           } satisfies FileNode);
         onDrillInto(node);
       },
-      contextmenu: (params: {
-        data?: EChartsTreeItem;
-        event?: { event?: MouseEvent };
-      }) => {
+      contextmenu: (params: { data?: EChartsTreeItem; event?: { event?: MouseEvent } }) => {
         const native = params.event?.event;
         if (native) {
           native.preventDefault();
@@ -504,7 +520,7 @@ const Treemap: React.FC<TreemapProps> = ({
         setCtxMenu({ x, y, node });
       },
     }),
-    [onNodeSelect, onDrillInto, resolveNode]
+    [onNodeSelect, onDrillInto, resolveNode],
   );
 
   const handleReveal = async () => {
@@ -681,16 +697,18 @@ const Treemap: React.FC<TreemapProps> = ({
 
         {expandingPaths && expandingPaths.size > 0 && (
           <div className="pointer-events-none absolute top-3 left-3 flex flex-col gap-1">
-            {Array.from(expandingPaths).slice(0, 3).map((p) => (
-              <div
-                key={p}
-                className="rounded-full bg-moss-700/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm"
-                title={p}
-              >
-                <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-                {t("treemap.loadingChildren")}: {p.split("/").filter(Boolean).pop() || p}
-              </div>
-            ))}
+            {Array.from(expandingPaths)
+              .slice(0, 3)
+              .map((p) => (
+                <div
+                  key={p}
+                  className="rounded-full bg-moss-700/90 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm"
+                  title={p}
+                >
+                  <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+                  {t("treemap.loadingChildren")}: {p.split("/").filter(Boolean).pop() || p}
+                </div>
+              ))}
           </div>
         )}
 

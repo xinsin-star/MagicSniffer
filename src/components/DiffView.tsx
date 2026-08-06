@@ -143,7 +143,10 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
     };
   }, [baseId, targetId]);
 
-  const rootPaths = useMemo(() => Array.from(new Set(snapshots.map((s) => s.root_path))), [snapshots]);
+  const rootPaths = useMemo(
+    () => Array.from(new Set(snapshots.map((s) => s.root_path))),
+    [snapshots],
+  );
   const rootGroup = useMemo(
     () => snapshots.filter((s) => s.root_path === activeRoot),
     [snapshots, activeRoot],
@@ -259,7 +262,9 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
           <Section label={t("diff.selectTitle")}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
-                <label className="w-12 shrink-0 text-xs font-medium text-ink-soft">{t("diff.base")}</label>
+                <label className="w-12 shrink-0 text-xs font-medium text-ink-soft">
+                  {t("diff.base")}
+                </label>
                 <select
                   value={baseId}
                   onChange={(e) => setBaseId(e.target.value)}
@@ -274,7 +279,9 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
                 </select>
               </div>
               <div className="flex items-center gap-2">
-                <label className="w-12 shrink-0 text-xs font-medium text-ink-soft">{t("diff.target")}</label>
+                <label className="w-12 shrink-0 text-xs font-medium text-ink-soft">
+                  {t("diff.target")}
+                </label>
                 <select
                   value={targetId}
                   onChange={(e) => setTargetId(e.target.value)}
@@ -288,10 +295,14 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
                   ))}
                 </select>
               </div>
-              {rootGroup.length < 2 && <p className="text-xs text-rose-600">{t("diff.needMore")}</p>}
+              {rootGroup.length < 2 && (
+                <p className="text-xs text-rose-600">{t("diff.needMore")}</p>
+              )}
               {error && <p className="text-xs text-rose-600">{error}</p>}
             </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">{t("diff.storageHint")}</p>
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+              {t("diff.storageHint")}
+            </p>
           </Section>
 
           {summary && (
@@ -302,7 +313,9 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
                   label={t("diff.totalChange")}
                   value={signedSize(summary.total_delta)}
                   sub={`${formatSize(summary.total_old_size)} → ${formatSize(summary.total_new_size)}`}
-                  tone={summary.total_delta > 0 ? "pos" : summary.total_delta < 0 ? "neg" : "neutral"}
+                  tone={
+                    summary.total_delta > 0 ? "pos" : summary.total_delta < 0 ? "neg" : "neutral"
+                  }
                 />
                 <StatCard
                   icon="📈"
@@ -361,7 +374,9 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
                   type="button"
                   onClick={() => setViewMode("treemap")}
                   className={`flex-1 px-3 py-1.5 text-xs font-medium transition ${
-                    viewMode === "treemap" ? "bg-moss-700 text-white" : "bg-white text-ink-soft hover:bg-moss-50"
+                    viewMode === "treemap"
+                      ? "bg-moss-700 text-white"
+                      : "bg-white text-ink-soft hover:bg-moss-50"
                   }`}
                 >
                   {t("diff.viewTreemap")}
@@ -370,27 +385,29 @@ const DiffView: React.FC<DiffViewProps> = ({ onExit }) => {
                   type="button"
                   onClick={() => setViewMode("list")}
                   className={`flex-1 px-3 py-1.5 text-xs font-medium transition ${
-                    viewMode === "list" ? "bg-moss-700 text-white" : "bg-white text-ink-soft hover:bg-moss-50"
+                    viewMode === "list"
+                      ? "bg-moss-700 text-white"
+                      : "bg-white text-ink-soft hover:bg-moss-50"
                   }`}
                 >
                   {t("diff.viewList")}
                 </button>
               </div>
               <div className="flex flex-wrap gap-1">
-                {(["all", "Grown", "Shrunk", "Unchanged", "Added", "Removed"] as DiffStatusFilter[]).map(
-                  (f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setStatusFilter(f)}
-                      className={`${chipBase} ${statusFilter === f ? chipActive : chipInactive}`}
-                    >
-                      {f === "all"
-                        ? t("diff.filterAll")
-                        : t(`diffStatusLabels.${f}` as Parameters<typeof t>[0])}
-                    </button>
-                  ),
-                )}
+                {(
+                  ["all", "Grown", "Shrunk", "Unchanged", "Added", "Removed"] as DiffStatusFilter[]
+                ).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setStatusFilter(f)}
+                    className={`${chipBase} ${statusFilter === f ? chipActive : chipInactive}`}
+                  >
+                    {f === "all"
+                      ? t("diff.filterAll")
+                      : t(`diffStatusLabels.${f}` as Parameters<typeof t>[0])}
+                  </button>
+                ))}
               </div>
             </div>
           </Section>

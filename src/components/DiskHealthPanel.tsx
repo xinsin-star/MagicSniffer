@@ -12,10 +12,7 @@ function smartColor(status?: string): string {
   return status === "Verified" ? "#7cb798" : "#d17171";
 }
 
-function smartLabel(
-  status: string | undefined,
-  t: (k: string) => string,
-): string {
+function smartLabel(status: string | undefined, t: (k: string) => string): string {
   if (!status) return t("disk.smartUnavailable");
   return status === "Verified" ? t("disk.healthy") : t("disk.warning");
 }
@@ -39,9 +36,7 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {disks.map((disk) => {
           const statusColor = smartColor(disk.smart_status);
-          const internalBadge = disk.is_internal
-            ? t("disk.internal")
-            : t("disk.external");
+          const internalBadge = disk.is_internal ? t("disk.internal") : t("disk.external");
           const volCount = disk.volumes.length;
 
           return (
@@ -90,16 +85,8 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                   />
                   {smartLabel(disk.smart_status, t)}
                 </span>
-                {disk.protocol && (
-                  <span className="text-ink-muted">
-                    {disk.protocol}
-                  </span>
-                )}
-                {disk.firmware && (
-                  <span className="font-mono text-ink-muted">
-                    {disk.firmware}
-                  </span>
-                )}
+                {disk.protocol && <span className="text-ink-muted">{disk.protocol}</span>}
+                {disk.firmware && <span className="font-mono text-ink-muted">{disk.firmware}</span>}
                 {disk.trim_support && (
                   <span className="rounded-md bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
                     TRIM
@@ -116,7 +103,9 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                   </div>
                 </div>
                 <div>
-                  <div className="text-ink-muted">{t("disk.volumes", { count: volCount.toString() })}</div>
+                  <div className="text-ink-muted">
+                    {t("disk.volumes", { count: volCount.toString() })}
+                  </div>
                   <div className="font-mono text-ink-soft">
                     {volCount > 0
                       ? disk.volumes
@@ -148,7 +137,9 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-muted">{t("disk.availableSpare")}</span>
-                      <span className={`font-mono font-medium ${disk.nvme_smart.available_spare > disk.nvme_smart.available_spare_threshold ? "text-green-600" : "text-red-500"}`}>
+                      <span
+                        className={`font-mono font-medium ${disk.nvme_smart.available_spare > disk.nvme_smart.available_spare_threshold ? "text-green-600" : "text-red-500"}`}
+                      >
                         {disk.nvme_smart.available_spare}%
                       </span>
                     </div>
@@ -172,7 +163,9 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-muted">{t("disk.unsafeShutdowns")}</span>
-                      <span className={`font-mono font-medium ${disk.nvme_smart.unsafe_shutdowns === 0 ? "text-green-600" : "text-orange-500"}`}>
+                      <span
+                        className={`font-mono font-medium ${disk.nvme_smart.unsafe_shutdowns === 0 ? "text-green-600" : "text-orange-500"}`}
+                      >
                         {disk.nvme_smart.unsafe_shutdowns}
                       </span>
                     </div>
@@ -190,14 +183,20 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-muted">{t("disk.mediaErrors")}</span>
-                      <span className={`font-mono font-medium ${disk.nvme_smart.media_errors === 0 ? "text-green-600" : "text-red-500"}`}>
+                      <span
+                        className={`font-mono font-medium ${disk.nvme_smart.media_errors === 0 ? "text-green-600" : "text-red-500"}`}
+                      >
                         {disk.nvme_smart.media_errors}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-ink-muted">{t("disk.criticalWarning")}</span>
-                      <span className={`font-mono font-medium ${disk.nvme_smart.critical_warning === 0 ? "text-green-600" : "text-red-500"}`}>
-                        {disk.nvme_smart.critical_warning === 0 ? t("disk.none") : `0x${disk.nvme_smart.critical_warning.toString(16)}`}
+                      <span
+                        className={`font-mono font-medium ${disk.nvme_smart.critical_warning === 0 ? "text-green-600" : "text-red-500"}`}
+                      >
+                        {disk.nvme_smart.critical_warning === 0
+                          ? t("disk.none")
+                          : `0x${disk.nvme_smart.critical_warning.toString(16)}`}
                       </span>
                     </div>
                   </div>
@@ -212,31 +211,22 @@ const DiskHealthPanel: React.FC<DiskHealthPanelProps> = ({ disks }) => {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[10px]">
                     <div>
-                      <div className="text-ink-muted">
-                        {t("disk.lifetimeReads")}
-                      </div>
+                      <div className="text-ink-muted">{t("disk.lifetimeReads")}</div>
                       <div className="font-mono font-medium text-ink-soft">
                         {formatLargeSize(disk.io_stats.bytes_read)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-ink-muted">
-                        {t("disk.lifetimeWrites")}
-                      </div>
+                      <div className="text-ink-muted">{t("disk.lifetimeWrites")}</div>
                       <div className="font-mono font-medium text-ink-soft">
                         {formatLargeSize(disk.io_stats.bytes_written)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-ink-muted">
-                        {t("disk.errors")}
-                      </div>
+                      <div className="text-ink-muted">{t("disk.errors")}</div>
                       <div className="font-mono font-medium text-ink-soft">
-                        {disk.io_stats.errors_read === 0 &&
-                        disk.io_stats.errors_write === 0 ? (
-                          <span className="text-green-600">
-                            {t("disk.noErrors")}
-                          </span>
+                        {disk.io_stats.errors_read === 0 && disk.io_stats.errors_write === 0 ? (
+                          <span className="text-green-600">{t("disk.noErrors")}</span>
                         ) : (
                           <span className="text-red-500">
                             R:{disk.io_stats.errors_read} W:

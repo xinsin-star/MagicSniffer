@@ -44,9 +44,7 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-10 text-center text-ink-muted">
         <div className="text-3xl opacity-50">👆</div>
-        <p className="max-w-[220px] text-sm leading-relaxed">
-          {t("detail.clickHint")}
-        </p>
+        <p className="max-w-[220px] text-sm leading-relaxed">{t("detail.clickHint")}</p>
       </div>
     );
   }
@@ -62,7 +60,14 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
       </h3>
 
       <Section title={t("detail.basicInfo")}>
-        <Row label={t("detail.type")} value={node.is_dir ? t("detail.directory") : t("detail.fileWithExt", { ext: node.extension ?? "" })} />
+        <Row
+          label={t("detail.type")}
+          value={
+            node.is_dir
+              ? t("detail.directory")
+              : t("detail.fileWithExt", { ext: node.extension ?? "" })
+          }
+        />
         <Row label={t("detail.size")} value={formatSize(node.size)} mono />
         {node.modified_at > 0 && (
           <Row label={t("detail.modified")} value={formatDate(node.modified_at, locale)} mono />
@@ -121,10 +126,7 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
             .slice(0, 10)
             .map((child) => {
               return (
-                <div
-                  key={child.path}
-                  className="flex items-center gap-2 py-0.5 text-[11px]"
-                >
+                <div key={child.path} className="flex items-center gap-2 py-0.5 text-[11px]">
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full"
                     style={{ backgroundColor: CATEGORY_COLORS[child.category] }}
@@ -145,10 +147,7 @@ const FileDetailPanel: React.FC<FileDetailPanelProps> = ({ node }) => {
   );
 };
 
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({
-  title,
-  children,
-}) => (
+const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="mb-4">
     <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
       {title}

@@ -49,7 +49,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
             onClick={onClose}
             className="rounded-lg p-1 text-ink-muted transition hover:bg-moss-50 hover:text-ink"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
@@ -79,9 +86,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
 
         {/* Disk Health (smartctl) */}
         <div className="mb-4 rounded-xl border border-moss-200/80 bg-moss-50/70 p-4">
-          <div className="mb-1 text-sm font-medium text-ink">
-            {t("settings.diskHealth")}
-          </div>
+          <div className="mb-1 text-sm font-medium text-ink">{t("settings.diskHealth")}</div>
           {smartctl === null ? (
             <p className="text-xs text-ink-muted">{t("settings.checking")}</p>
           ) : smartctl.available ? (
@@ -90,9 +95,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 mr-1" />
                 smartmontools {smartctl.version} {t("settings.smartctlInstalled")}
               </p>
-              <p className="mt-1 text-[11px] text-ink-muted">
-                {t("settings.smartctlDataDesc")}
-              </p>
+              <p className="mt-1 text-[11px] text-ink-muted">{t("settings.smartctlDataDesc")}</p>
             </div>
           ) : (
             <div>
@@ -100,9 +103,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 mr-1" />
                 {t("settings.smartctlNotInstalled")}
               </p>
-              <p className="mt-1 text-[11px] text-ink-muted">
-                {t("settings.smartctlInstallHint")}
-              </p>
+              <p className="mt-1 text-[11px] text-ink-muted">{t("settings.smartctlInstallHint")}</p>
               <code className="mt-1.5 block select-all rounded-md bg-moss-100 px-2 py-1 font-mono text-[11px] text-moss-800">
                 brew install smartmontools
               </code>

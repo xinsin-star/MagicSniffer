@@ -135,7 +135,11 @@ const DiffListView: React.FC<DiffListViewProps> = ({ diffRoot, statusFilter }) =
         <tbody>
           {sorted.map(({ node, depth }, idx) => {
             const deltaColor =
-              node.delta > 0 ? "text-emerald-600" : node.delta < 0 ? "text-rose-600" : "text-ink-muted";
+              node.delta > 0
+                ? "text-emerald-600"
+                : node.delta < 0
+                  ? "text-rose-600"
+                  : "text-ink-muted";
             return (
               <tr
                 key={node.path}
@@ -160,7 +164,10 @@ const DiffListView: React.FC<DiffListViewProps> = ({ diffRoot, statusFilter }) =
                       <span style={{ width: depth * 14 }} className="shrink-0" />
                       <span className="truncate font-medium text-ink">{node.name}</span>
                     </div>
-                    <div className="mt-0.5 truncate text-[10px] text-ink-muted/80" title={node.path}>
+                    <div
+                      className="mt-0.5 truncate text-[10px] text-ink-muted/80"
+                      title={node.path}
+                    >
                       <span style={{ width: depth * 14 }} className="inline-block shrink-0" />
                       {node.path}
                     </div>
@@ -175,7 +182,9 @@ const DiffListView: React.FC<DiffListViewProps> = ({ diffRoot, statusFilter }) =
                 <td className="px-3 py-2 text-right font-mono text-xs whitespace-nowrap text-ink">
                   {formatSize(node.new_size)}
                 </td>
-                <td className={`px-3 py-2 text-right font-mono text-xs font-semibold whitespace-nowrap ${deltaColor}`}>
+                <td
+                  className={`px-3 py-2 text-right font-mono text-xs font-semibold whitespace-nowrap ${deltaColor}`}
+                >
                   {signedSize(node.delta)}
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-xs whitespace-nowrap text-ink-soft">

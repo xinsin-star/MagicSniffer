@@ -43,10 +43,7 @@ export async function validateScanPath(path: string, lang?: string): Promise<str
  * 启动文件系统扫描
  * 返回 CachedScan（含 incomplete 断点信息）
  */
-export async function startScan(
-  request: ScanRequest,
-  resume = false
-): Promise<CachedScan> {
+export async function startScan(request: ScanRequest, resume = false): Promise<CachedScan> {
   return invoke<CachedScan>("start_scan", { request, resume });
 }
 
@@ -131,7 +128,7 @@ export async function assessDeleteRisk(path: string, lang?: string): Promise<Ris
  */
 export async function assessBatchDeleteRisk(
   paths: string[],
-  lang?: string
+  lang?: string,
 ): Promise<BatchRiskResult> {
   return invoke<BatchRiskResult>("assess_batch_delete_risk", { paths, lang: lang ?? null });
 }
@@ -144,7 +141,7 @@ export async function assessBatchDeleteRisk(
  * @returns 取消监听的函数
  */
 export async function onScanProgress(
-  callback: (progress: ScanProgress) => void
+  callback: (progress: ScanProgress) => void,
 ): Promise<UnlistenFn> {
   return listen<ScanProgress>("scan-progress", (event) => {
     callback(event.payload);
@@ -155,9 +152,7 @@ export async function onScanProgress(
  * 监听扫描增量预览（边扫边看）
  * 顶级子树完成或尺寸增长时推送，用于即时刷新 Treemap
  */
-export async function onScanPreview(
-  callback: (preview: ScanPreview) => void
-): Promise<UnlistenFn> {
+export async function onScanPreview(callback: (preview: ScanPreview) => void): Promise<UnlistenFn> {
   return listen<ScanPreview>("scan-preview", (event) => {
     callback(event.payload);
   });
@@ -179,17 +174,13 @@ export async function getDiskMounts(lang?: string): Promise<DiskMountInfo[]> {
 }
 
 /** 获取物理磁盘健康度信息 */
-export async function getPhysicalDiskHealth(
-  lang?: string,
-): Promise<PhysicalDiskHealth[]> {
+export async function getPhysicalDiskHealth(lang?: string): Promise<PhysicalDiskHealth[]> {
   return invoke<PhysicalDiskHealth[]>("get_physical_disk_health", {
     lang: lang ?? null,
   });
 }
 
 /** 检查 smartctl (smartmontools) 是否已安装 */
-export async function checkSmartctl(
-  lang?: string,
-): Promise<SmartctlStatus> {
+export async function checkSmartctl(lang?: string): Promise<SmartctlStatus> {
   return invoke<SmartctlStatus>("check_smartctl", { lang: lang ?? null });
 }

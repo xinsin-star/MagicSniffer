@@ -38,15 +38,12 @@ const DiskMountChart: React.FC<DiskMountChartProps> = ({ mounts }) => {
     () =>
       mounts.map((m) => {
         const usedSpace = m.total_space - m.available_space;
-        const pct =
-          m.total_space > 0
-            ? ((usedSpace / m.total_space) * 100).toFixed(1)
-            : "0";
+        const pct = m.total_space > 0 ? ((usedSpace / m.total_space) * 100).toFixed(1) : "0";
         const opt = donutOption(usedSpace, m.available_space);
 
         return { mount: m, option: opt, pct, usedSpace };
       }),
-    [mounts]
+    [mounts],
   );
 
   if (mounts.length === 0) return null;
@@ -77,17 +74,20 @@ const DiskMountChart: React.FC<DiskMountChartProps> = ({ mounts }) => {
                   lazyUpdate
                 />
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                  <span className="font-mono text-lg font-semibold text-ink">
-                    {pct}%
-                  </span>
+                  <span className="font-mono text-lg font-semibold text-ink">{pct}%</span>
                 </div>
               </div>
 
               {/* Info */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="truncate text-sm font-semibold text-ink" title={mount.mount_point}>
-                    {mount.mount_point === "/" ? "Macintosh HD" : mount.mount_point.split("/").filter(Boolean).pop() || mount.mount_point}
+                  <span
+                    className="truncate text-sm font-semibold text-ink"
+                    title={mount.mount_point}
+                  >
+                    {mount.mount_point === "/"
+                      ? "Macintosh HD"
+                      : mount.mount_point.split("/").filter(Boolean).pop() || mount.mount_point}
                   </span>
                   {mount.is_removable && (
                     <span className="shrink-0 rounded-md bg-sand-200 px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">

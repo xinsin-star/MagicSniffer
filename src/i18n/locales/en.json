@@ -38,9 +38,9 @@
     "startFullScan": "Start full scan",
     "scanHomeDir": "Scan home directory",
     "categoryUsage": "Category breakdown",
-  "expand": "Expand",
-  "collapse": "Collapse",
-  "noData": "No data"
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "noData": "No data"
   },
   "treemap": {
     "back": "← Up",

@@ -1,7 +1,13 @@
 //! Dashboard — 清新自然首页概览
 
 import React, { useRef, useState } from "react";
-import type { CategorySummary, DiskMountInfo, PhysicalDiskHealth, ScanCacheMeta, SystemOverview } from "../types";
+import type {
+  CategorySummary,
+  DiskMountInfo,
+  PhysicalDiskHealth,
+  ScanCacheMeta,
+  SystemOverview,
+} from "../types";
 import { CATEGORY_COLORS, formatDate, formatSize } from "../types";
 import { getDiskMounts, getPhysicalDiskHealth } from "../hooks/useTauriCommand";
 import { useTranslation } from "../i18n/useTranslation";
@@ -163,8 +169,16 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-8 py-10 [scrollbar-gutter:stable]">
       <div className="mb-8 grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label={t("dashboard.totalCapacity")} value={formatSize(overview.total_space)} sub={t("dashboard.available", { size: formatSize(overview.free_space) })} />
-        <StatCard label={t("dashboard.usedSpace")} value={formatSize(overview.used_space)} sub={t("dashboard.usedPercent", { pct: usedPct })} />
+        <StatCard
+          label={t("dashboard.totalCapacity")}
+          value={formatSize(overview.total_space)}
+          sub={t("dashboard.available", { size: formatSize(overview.free_space) })}
+        />
+        <StatCard
+          label={t("dashboard.usedSpace")}
+          value={formatSize(overview.used_space)}
+          sub={t("dashboard.usedPercent", { pct: usedPct })}
+        />
         <StatCard
           label={t("dashboard.freeSpace")}
           value={formatSize(overview.free_space)}
@@ -243,9 +257,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-soft">
                     <span>{formatDate(meta.cached_at, locale)}</span>
                     <span>{formatSize(meta.total_size)}</span>
-                    <span>{t("dashboard.files", { count: meta.total_files.toLocaleString() })}</span>
+                    <span>
+                      {t("dashboard.files", { count: meta.total_files.toLocaleString() })}
+                    </span>
                     <span>{t("dashboard.dirs", { count: meta.total_dirs.toLocaleString() })}</span>
-                    <span>{t("dashboard.elapsed", { sec: (meta.elapsed_ms / 1000).toFixed(1) })}</span>
+                    <span>
+                      {t("dashboard.elapsed", { sec: (meta.elapsed_ms / 1000).toFixed(1) })}
+                    </span>
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2">
@@ -314,9 +332,7 @@ const StatCard: React.FC<{
   <div className="rounded-2xl border border-moss-200/80 bg-white/70 p-4 shadow-sm backdrop-blur-sm">
     <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">{label}</div>
     <div
-      className={`mt-1 font-mono text-2xl font-semibold ${
-        accent ? "text-moss-600" : "text-ink"
-      }`}
+      className={`mt-1 font-mono text-2xl font-semibold ${accent ? "text-moss-600" : "text-ink"}`}
     >
       {value}
     </div>
@@ -331,17 +347,19 @@ const CategoryBarChart: React.FC<{ summary: CategorySummary[] }> = ({ summary })
 
   return (
     <div>
-      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">{t("dashboard.categoryUsage")}</h2>
+      <h2 className="mb-4 font-display text-lg font-semibold text-moss-800">
+        {t("dashboard.categoryUsage")}
+      </h2>
       <div className="flex flex-col gap-3">
         {sorted.map((s) => {
           const pct = Math.max(2, (s.total_size / max) * 100);
           return (
             <div key={s.category}>
               <div className="mb-1 flex justify-between text-xs">
-                <span className="font-medium text-ink">{t(`categoryLabels.${s.category}` as Parameters<typeof t>[0])}</span>
-                <span className="font-mono text-ink-muted">
-                  {formatSize(s.total_size)}
+                <span className="font-medium text-ink">
+                  {t(`categoryLabels.${s.category}` as Parameters<typeof t>[0])}
                 </span>
+                <span className="font-mono text-ink-muted">{formatSize(s.total_size)}</span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-moss-100">
                 <div

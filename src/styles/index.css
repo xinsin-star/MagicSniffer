@@ -78,7 +78,9 @@
   stroke: rgba(255, 255, 255, 0.72);
   stroke-width: 1.5;
   cursor: pointer;
-  transition: opacity 150ms ease, stroke-width 150ms ease;
+  transition:
+    opacity 150ms ease,
+    stroke-width 150ms ease;
 }
 
 .treemap-rect:hover {

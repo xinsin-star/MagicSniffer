@@ -38,9 +38,9 @@
     "startFullScan": "开始完整扫描",
     "scanHomeDir": "扫描用户主目录",
     "categoryUsage": "分类占用",
-  "expand": "展开",
-  "collapse": "收起",
-  "noData": "暂无数据"
+    "expand": "展开",
+    "collapse": "收起",
+    "noData": "暂无数据"
   },
   "treemap": {
     "back": "← 上级",

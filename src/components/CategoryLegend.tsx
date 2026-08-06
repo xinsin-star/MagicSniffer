@@ -29,29 +29,24 @@ const CategoryLegend: React.FC<CategoryLegendProps> = ({
         <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
           {t("categoryLegend.title")}
         </span>
-        <span className="text-[11px] text-ink-muted">{t("categoryLegend.total", { size: formatSize(totalSize) })}</span>
+        <span className="text-[11px] text-ink-muted">
+          {t("categoryLegend.total", { size: formatSize(totalSize) })}
+        </span>
       </div>
 
       <div className="flex max-h-40 flex-col gap-0.5 overflow-y-auto">
         {filtered.map((summary) => {
           const isSelected = selectedCategory === summary.category;
-          const pct =
-            totalSize > 0
-              ? ((summary.total_size / totalSize) * 100).toFixed(1)
-              : "0.0";
+          const pct = totalSize > 0 ? ((summary.total_size / totalSize) * 100).toFixed(1) : "0.0";
 
           return (
             <button
               key={summary.category}
               type="button"
               className={`flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-xs transition ${
-                isSelected
-                  ? "bg-moss-100 ring-1 ring-moss-400"
-                  : "hover:bg-moss-50"
+                isSelected ? "bg-moss-100 ring-1 ring-moss-400" : "hover:bg-moss-50"
               }`}
-              onClick={() =>
-                onCategorySelect(isSelected ? null : summary.category)
-              }
+              onClick={() => onCategorySelect(isSelected ? null : summary.category)}
             >
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-sm"

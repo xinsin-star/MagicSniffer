@@ -22,15 +22,15 @@ A macOS disk space visualization tool inspired by [SpaceSniffer](http://www.uder
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop Framework | Tauri 2.0 |
-| Backend | Rust (Rayon, Tokio, sysinfo, regex) |
-| Frontend | React 19 + TypeScript |
-| State Management | Zustand |
-| Charts | ECharts |
-| Styling | Tailwind CSS 4 |
-| Bundle | Vite + Bun |
+| Layer             | Technology                          |
+| ----------------- | ----------------------------------- |
+| Desktop Framework | Tauri 2.0                           |
+| Backend           | Rust (Rayon, Tokio, sysinfo, regex) |
+| Frontend          | React 19 + TypeScript               |
+| State Management  | Zustand                             |
+| Charts            | ECharts                             |
+| Styling           | Tailwind CSS 4                      |
+| Bundle            | Vite + Bun                          |
 
 ## Prerequisites
 
@@ -38,7 +38,7 @@ A macOS disk space visualization tool inspired by [SpaceSniffer](http://www.uder
 - **Rust** 1.90+ — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **Bun** 1.3+ — `curl -fsSL https://bun.sh/install | bash`
 - **Xcode Command Line Tools** — `xcode-select --install`
-- **smartmontools** *(optional)* — `brew install smartmontools` — enables detailed NVMe SMART health data
+- **smartmontools** _(optional)_ — `brew install smartmontools` — enables detailed NVMe SMART health data
 
 ## Quick Start
 
@@ -59,19 +59,19 @@ bun run tauri:build:x86_64    # Intel
 
 ## Scripts
 
-| Script | Description |
-|--------|-------------|
-| `bun run dev` | Vite frontend dev server only |
-| `bun run build` | Type-check + build frontend |
-| `bun run tauri:dev` | Full Tauri dev mode (frontend + Rust) |
-| `bun run tauri:build` | Production build (native architecture) |
-| `bun run tauri:build:debug` | Debug build with symbols |
-| `bun run tauri:build:aarch64` | Build for Apple Silicon |
-| `bun run tauri:build:x86_64` | Build for Intel |
-| `bun run tauri:build:dmg` | Build DMG bundle only |
-| `bun run tauri:check` | Fast Rust syntax check (`cargo check`) |
-| `bun run tauri:clippy` | Rust lint check (`cargo clippy`) |
-| `bun run bump-version 1.0.0` | Update version in all config files |
+| Script                        | Description                            |
+| ----------------------------- | -------------------------------------- |
+| `bun run dev`                 | Vite frontend dev server only          |
+| `bun run build`               | Type-check + build frontend            |
+| `bun run tauri:dev`           | Full Tauri dev mode (frontend + Rust)  |
+| `bun run tauri:build`         | Production build (native architecture) |
+| `bun run tauri:build:debug`   | Debug build with symbols               |
+| `bun run tauri:build:aarch64` | Build for Apple Silicon                |
+| `bun run tauri:build:x86_64`  | Build for Intel                        |
+| `bun run tauri:build:dmg`     | Build DMG bundle only                  |
+| `bun run tauri:check`         | Fast Rust syntax check (`cargo check`) |
+| `bun run tauri:clippy`        | Rust lint check (`cargo clippy`)       |
+| `bun run bump-version 1.0.0`  | Update version in all config files     |
 
 ## Project Structure
 
@@ -147,6 +147,7 @@ MagicSniffer/
 ```
 
 **Key design decisions:**
+
 - Rayon (not Tokio) for scanning — work-stealing is better for mixed CPU/IO workloads
 - Treemap rendered as React SVG — responsive and interactive (zoom, drill-down)
 - File search runs in Rust — regex matching at native speed
@@ -156,44 +157,44 @@ MagicSniffer/
 
 ## Backend Commands
 
-| Command | Description |
-|---------|-------------|
-| `get_system_overview` | System storage overview (total/used/free) |
-| `validate_scan_path` | Validate and expand scan path |
-| `start_scan` | Start/resume filesystem scan |
-| `stop_scan` | Pause scan with checkpoint |
-| `set_scan_priority` | Prioritize a subdirectory during scan |
-| `quick_scan_known_dirs` | Fast preview of known large directories |
-| `search_files` | Search files with regex + size filter |
-| `assess_delete_risk` | Evaluate deletion risk for a path |
-| `assess_batch_delete_risk` | Batch risk assessment |
-| `reveal_in_file_manager` | Show path in Finder/Explorer |
-| `get_disk_mounts` | Enumerate all mount points with usage |
-| `get_physical_disk_health` | Physical disk health + NVMe SMART data |
-| `check_smartctl` | Check if smartmontools is installed |
-| `update_tray_menu` | Update system tray menu language |
-| `load_latest_scan_cache` | Restore last scan result |
-| `load_scan_cache` | Load scan cache by root path |
-| `list_scan_caches` | List saved scan caches |
-| `clear_scan_cache` | Clear scan cache(s) |
+| Command                    | Description                               |
+| -------------------------- | ----------------------------------------- |
+| `get_system_overview`      | System storage overview (total/used/free) |
+| `validate_scan_path`       | Validate and expand scan path             |
+| `start_scan`               | Start/resume filesystem scan              |
+| `stop_scan`                | Pause scan with checkpoint                |
+| `set_scan_priority`        | Prioritize a subdirectory during scan     |
+| `quick_scan_known_dirs`    | Fast preview of known large directories   |
+| `search_files`             | Search files with regex + size filter     |
+| `assess_delete_risk`       | Evaluate deletion risk for a path         |
+| `assess_batch_delete_risk` | Batch risk assessment                     |
+| `reveal_in_file_manager`   | Show path in Finder/Explorer              |
+| `get_disk_mounts`          | Enumerate all mount points with usage     |
+| `get_physical_disk_health` | Physical disk health + NVMe SMART data    |
+| `check_smartctl`           | Check if smartmontools is installed       |
+| `update_tray_menu`         | Update system tray menu language          |
+| `load_latest_scan_cache`   | Restore last scan result                  |
+| `load_scan_cache`          | Load scan cache by root path              |
+| `list_scan_caches`         | List saved scan caches                    |
+| `clear_scan_cache`         | Clear scan cache(s)                       |
 
 ## File Categories
 
-| Category | Color | Description | Risk |
-|----------|-------|-------------|------|
-| System | Red | macOS core files | High |
-| System Cache | Orange | System cache directories | Low |
-| User Cache | Green | App cache data | Low |
-| User Data | Blue | Personal files | Medium |
-| Application | Purple | Installed apps | High |
-| Temporary | Cyan | Temp directories | Safe |
-| Logs | Orange | System & app logs | Safe |
-| Downloads | Deep Blue | Downloads folder | Medium |
-| Trash | Gray | Deleted files | Safe |
-| Xcode Derived | Deep Red | Xcode build artifacts | Low |
-| App Container | Violet | Sandbox container data | Medium |
-| Language Pack | Teal | Unused localization files | Safe |
-| Other | Light Gray | Uncategorized | — |
+| Category      | Color      | Description               | Risk   |
+| ------------- | ---------- | ------------------------- | ------ |
+| System        | Red        | macOS core files          | High   |
+| System Cache  | Orange     | System cache directories  | Low    |
+| User Cache    | Green      | App cache data            | Low    |
+| User Data     | Blue       | Personal files            | Medium |
+| Application   | Purple     | Installed apps            | High   |
+| Temporary     | Cyan       | Temp directories          | Safe   |
+| Logs          | Orange     | System & app logs         | Safe   |
+| Downloads     | Deep Blue  | Downloads folder          | Medium |
+| Trash         | Gray       | Deleted files             | Safe   |
+| Xcode Derived | Deep Red   | Xcode build artifacts     | Low    |
+| App Container | Violet     | Sandbox container data    | Medium |
+| Language Pack | Teal       | Unused localization files | Safe   |
+| Other         | Light Gray | Uncategorized             | —      |
 
 ## CI/CD
 

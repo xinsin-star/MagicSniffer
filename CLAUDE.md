@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Frontend (Bun/Node)
+
 ```bash
 # 安装依赖
 bun install
@@ -24,6 +25,7 @@ npx tsc --noEmit
 ```
 
 ### Full App (Tauri)
+
 ```bash
 # Tauri 开发模式（前端 + Rust 后端）
 bun run tauri dev
@@ -33,6 +35,7 @@ bun run tauri build
 ```
 
 ### Rust Backend Only
+
 ```bash
 cd src-tauri
 cargo check       # 快速语法检查（不输出二进制）
@@ -62,6 +65,7 @@ src/                              src-tauri/src/
 **Data flow**: Frontend calls `invoke("command_name", { args })` → Tauri routes to Rust `#[tauri::command]` async fn → returns JSON to frontend. Progress events flow Rust→Frontend via `app_handle.emit("scan-progress", data)`.
 
 **Key design decisions**:
+
 - Rayon (not Tokio) for parallel scanning — work-stealing better for mixed CPU/IO
 - Treemap rendered in React (SVG) — allows responsive interaction
 - File search runs in Rust for performance — regex matching at native speed
@@ -70,6 +74,7 @@ src/                              src-tauri/src/
 ## Important Patterns
 
 ### Adding a new Tauri command
+
 1. Define request/response types in `models.rs` with `Serialize`/`Deserialize`
 2. Implement the handler in `commands.rs` with `#[tauri::command]`
 3. Register in `lib.rs` via `generate_handler![]`
@@ -77,17 +82,21 @@ src/                              src-tauri/src/
 5. Add invoke wrapper in `src/hooks/useTauriCommand.ts`
 
 ### File categorization
+
 The categorizer uses a hierarchical matching strategy (see `categorizer.rs`). To add a new category: add variant to `FileCategory` enum in `models.rs`, add path rules in `Categorizer::new()`, and add color/label in `CATEGORY_INFO` in `src/types/index.ts`.
 
 ### Treemap rendering
+
 Uses SVG with 1000x1000 viewBox. Percentage-based coordinates are multiplied by 10. Rectangles smaller than 0.5% are skipped. Text labels rendered only if rect width > 40 and height > 25. Max recursion depth: 8.
 
 ### Permission model
+
 Tauri 2.0 capability-based permissions in `src-tauri/capabilities/default.json`. Add required permissions there when using new Tauri plugins.
 
 ## Release 提版流程
 
 当用户要求提版/发版/发布新版本时，必须遵循 `.claude/skills/release.md` 全流程：
+
 1. 确认版本号（默认按 git log 变更类型推断 minor/patch/major）
 2. `bash scripts/bump-version.sh <版本号>` 统一更新三处版本号
 3. 在 `RELEASES.md` **最顶部**写入本次发布说明（图标模板见 skill）
@@ -103,19 +112,20 @@ CI（`.github/workflows/release.yml`）会自动按版本号从 `RELEASES.md` �
 <emoji> <type>: <subject>
 ```
 
-| Emoji | Type | 说明 |
-|-------|------|------|
-| ➕ | Feat | 新功能、新特性 |
-| 🐛 | Bug | Bug 修复 |
-| 🚧 | Fix | 修复、修正问题 |
-| 🔨 | Refactor | 代码重构（不改变功能） |
-| 📝 | Docs | 文档更新 |
-| ✨ | Style | 代码风格、格式调整（不影响逻辑） |
-| 🍱 | Perf | 性能优化 |
-| 🔧 | Test | 测试相关 |
-| ⚡️ | Chore | 构建、依赖、工具配置等杂项 |
+| Emoji | Type     | 说明                             |
+| ----- | -------- | -------------------------------- |
+| ➕    | Feat     | 新功能、新特性                   |
+| 🐛    | Bug      | Bug 修复                         |
+| 🚧    | Fix      | 修复、修正问题                   |
+| 🔨    | Refactor | 代码重构（不改变功能）           |
+| 📝    | Docs     | 文档更新                         |
+| ✨    | Style    | 代码风格、格式调整（不影响逻辑） |
+| 🍱    | Perf     | 性能优化                         |
+| 🔧    | Test     | 测试相关                         |
+| ⚡️    | Chore    | 构建、依赖、工具配置等杂项       |
 
 **格式要求**：
+
 - Subject 使用中文或英文，简洁描述变更内容
 - 不超过 72 个字符
 - 不需要句号结尾

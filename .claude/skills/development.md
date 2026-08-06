@@ -71,16 +71,20 @@ export async function myNewCommand(request: MyRequest): Promise<MyResponse> {
 当需要修改 Treemap 可视化行为时使用此技能。
 
 ### 关键文件
+
 - `src/components/Treemap.tsx` - 核心 Treemap 组件，包含布局算法和 SVG 渲染
 - `src/styles/index.css` - Treemap 相关样式（`.treemap-*` 类）
 
 ### 布局算法
+
 Squarified Treemap 算法实现在 `computeTreemapLayout()` 函数中：
+
 - `squarify()` - 核心布局，将一系列矩形排列到指定区域
 - `findBestSplit()` - 确定行的最佳分割点
 - 可通过修改 `computeTreemapLayout()` 调整递归深度限制（当前最大 8 层）
 
 ### 渲染控制
+
 - `renderTreemapNode()` 函数控制 SVG 渲染
 - 最小渲染尺寸: `minSize = 0.5` (百分比)
 - SVG 视口: `1000x1000`

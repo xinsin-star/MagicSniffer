@@ -39,9 +39,7 @@ export const useI18nStore = create<I18nStore>((set, get) => ({
     }
     if (typeof value !== "string") return key;
     if (params) {
-      return value.replace(/\{(\w+)\}/g, (_, name: string) =>
-        String(params[name] ?? `{${name}}`)
-      );
+      return value.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name] ?? `{${name}}`));
     }
     return value;
   },

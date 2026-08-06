@@ -11,10 +11,7 @@ interface SearchPanelProps {
   onResultSelect: (item: SearchResultItem) => void;
 }
 
-const SearchPanel: React.FC<SearchPanelProps> = ({
-  rootPath,
-  onResultSelect,
-}) => {
+const SearchPanel: React.FC<SearchPanelProps> = ({ rootPath, onResultSelect }) => {
   const [query, setQuery] = useState("");
   const [useRegex, setUseRegex] = useState(false);
   const [minSize, setMinSize] = useState("0");
@@ -103,7 +100,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
 
       <div className="max-h-44 shrink-0 overflow-y-auto border-b border-moss-200/70">
         {error && (
-          <div className="px-4 py-2 text-[11px] text-red-600">{t("search.error")}: {error}</div>
+          <div className="px-4 py-2 text-[11px] text-red-600">
+            {t("search.error")}: {error}
+          </div>
         )}
 
         {results && (
@@ -139,8 +138,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     <div className="font-mono text-[11px] text-ink-muted">
                       {formatSize(item.size)}
                     </div>
-                    <div className="text-[9px]" style={{ color: RISK_LEVEL_COLORS[item.risk_level] }}>
-                      {t(`categoryLabels.${item.category}` as Parameters<typeof t>[0])} · {t(`riskLabels.${item.risk_level}` as Parameters<typeof t>[0])}
+                    <div
+                      className="text-[9px]"
+                      style={{ color: RISK_LEVEL_COLORS[item.risk_level] }}
+                    >
+                      {t(`categoryLabels.${item.category}` as Parameters<typeof t>[0])} ·{" "}
+                      {t(`riskLabels.${item.risk_level}` as Parameters<typeof t>[0])}
                     </div>
                   </div>
                 </button>

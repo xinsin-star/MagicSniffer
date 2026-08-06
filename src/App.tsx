@@ -124,20 +124,17 @@ const App: React.FC = () => {
   }, []);
 
   /** 持久化展开缓存到 localStorage */
-  const persistCache = useCallback(
-    (rootPath: string, cache: Map<string, FileNode[]>) => {
-      const key = expandedCacheKey(rootPath);
-      if (!key) return;
-      try {
-        const obj: Record<string, FileNode[]> = {};
-        for (const [k, v] of cache) obj[k] = v;
-        localStorage.setItem(key, JSON.stringify(obj));
-      } catch (e) {
-        console.warn("写入展开缓存失败:", e);
-      }
-    },
-    []
-  );
+  const persistCache = useCallback((rootPath: string, cache: Map<string, FileNode[]>) => {
+    const key = expandedCacheKey(rootPath);
+    if (!key) return;
+    try {
+      const obj: Record<string, FileNode[]> = {};
+      for (const [k, v] of cache) obj[k] = v;
+      localStorage.setItem(key, JSON.stringify(obj));
+    } catch (e) {
+      console.warn("写入展开缓存失败:", e);
+    }
+  }, []);
 
   /** 正在展开的目录路径集合（用于 Treemap 加载提示） */
   const [expandingPaths, setExpandingPaths] = useState<Set<string>>(new Set());
@@ -165,7 +162,7 @@ const App: React.FC = () => {
       }
       return { ...root, children: newChildren };
     },
-    []
+    [],
   );
 
   const handleSetScanPath = useCallback((p: string) => {
@@ -173,39 +170,42 @@ const App: React.FC = () => {
     setScanError(null);
   }, []);
 
-  const applyCached = useCallback((cached: CachedScan, opts?: { fromCache?: boolean }) => {
-    const result = cached.result;
-    // 加载该扫描根的持久化展开缓存
-    expandedCacheRef.current = loadPersistedCache(result.root_path);
-    setScanResult(result);
-    setLivePreview(null);
-    setSelectedNode(null);
-    setSelectedCategory(null);
-    setNavStack([result.root_node]);
-    setScanPath(result.root_path);
-    setFromCache(!!opts?.fromCache);
-    setIncomplete(!!cached.incomplete);
-    setCacheMeta({
-      root_path: result.root_path,
-      cached_at: cached.cached_at,
-      total_size: result.root_node.size,
-      total_files: result.total_files,
-      total_dirs: result.total_dirs,
-      elapsed_ms: result.elapsed_ms,
-      incomplete: cached.incomplete,
-    });
-    setOverview((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        category_summary: result.category_summary,
-        top_consumers: result.root_node.children
-          ? [...result.root_node.children].sort((a, b) => b.size - a.size).slice(0, 10)
-          : [],
-      };
-    });
-    setAppState("results");
-  }, [loadPersistedCache]);
+  const applyCached = useCallback(
+    (cached: CachedScan, opts?: { fromCache?: boolean }) => {
+      const result = cached.result;
+      // 加载该扫描根的持久化展开缓存
+      expandedCacheRef.current = loadPersistedCache(result.root_path);
+      setScanResult(result);
+      setLivePreview(null);
+      setSelectedNode(null);
+      setSelectedCategory(null);
+      setNavStack([result.root_node]);
+      setScanPath(result.root_path);
+      setFromCache(!!opts?.fromCache);
+      setIncomplete(!!cached.incomplete);
+      setCacheMeta({
+        root_path: result.root_path,
+        cached_at: cached.cached_at,
+        total_size: result.root_node.size,
+        total_files: result.total_files,
+        total_dirs: result.total_dirs,
+        elapsed_ms: result.elapsed_ms,
+        incomplete: cached.incomplete,
+      });
+      setOverview((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          category_summary: result.category_summary,
+          top_consumers: result.root_node.children
+            ? [...result.root_node.children].sort((a, b) => b.size - a.size).slice(0, 10)
+            : [],
+        };
+      });
+      setAppState("results");
+    },
+    [loadPersistedCache],
+  );
 
   /** 刷新缓存列表（最多 5 条） */
   const refreshCacheList = useCallback(async () => {
@@ -218,35 +218,41 @@ const App: React.FC = () => {
   }, []);
 
   /** 打开指定缓存 */
-  const handleOpenCacheEntry = useCallback(async (rootPath: string) => {
-    try {
-      const cached = await loadScanCache(rootPath);
-      if (cached?.result) {
-        applyCached(cached, { fromCache: true });
+  const handleOpenCacheEntry = useCallback(
+    async (rootPath: string) => {
+      try {
+        const cached = await loadScanCache(rootPath);
+        if (cached?.result) {
+          applyCached(cached, { fromCache: true });
+        }
+      } catch (e) {
+        console.error("打开缓存失败:", e);
       }
-    } catch (e) {
-      console.error("打开缓存失败:", e);
-    }
-  }, [applyCached]);
+    },
+    [applyCached],
+  );
 
   /** 清除指定缓存并刷新列表 */
-  const handleClearCacheEntry = useCallback(async (rootPath: string) => {
-    try {
-      await clearScanCache(rootPath);
-      await refreshCacheList();
-      // 若清的是当前正在查看的，回 dashboard
-      if (cacheMeta?.root_path === rootPath) {
-        setCacheMeta(null);
-        setFromCache(false);
-        setIncomplete(false);
-        setScanResult(null);
-        setNavStack([]);
-        setAppState("dashboard");
+  const handleClearCacheEntry = useCallback(
+    async (rootPath: string) => {
+      try {
+        await clearScanCache(rootPath);
+        await refreshCacheList();
+        // 若清的是当前正在查看的，回 dashboard
+        if (cacheMeta?.root_path === rootPath) {
+          setCacheMeta(null);
+          setFromCache(false);
+          setIncomplete(false);
+          setScanResult(null);
+          setNavStack([]);
+          setAppState("dashboard");
+        }
+      } catch (e) {
+        console.error("清除缓存失败:", e);
       }
-    } catch (e) {
-      console.error("清除缓存失败:", e);
-    }
-  }, [cacheMeta, refreshCacheList]);
+    },
+    [cacheMeta, refreshCacheList],
+  );
 
   // 动态设置页面标题 + 同步托盘菜单
   useEffect(() => {
@@ -279,7 +285,9 @@ const App: React.FC = () => {
       }
     };
     loadOverview();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [locale]);
 
   // 启动时恢复最近一次扫描缓存 + 加载缓存列表
@@ -287,10 +295,7 @@ const App: React.FC = () => {
     let cancelled = false;
     const restore = async () => {
       try {
-        const [cached] = await Promise.all([
-          loadLatestScanCache(),
-          refreshCacheList(),
-        ]);
+        const [cached] = await Promise.all([loadLatestScanCache(), refreshCacheList()]);
         if (cancelled) return;
         if (cached?.result) {
           applyCached(cached, { fromCache: true });
@@ -380,7 +385,7 @@ const App: React.FC = () => {
           exclude_patterns: ["/private/var/run", "/proc", "/dev"],
           min_file_size: 0,
         },
-        false
+        false,
       );
       scanningRef.current = false;
       applyCached(cached);
@@ -425,7 +430,7 @@ const App: React.FC = () => {
           ],
           min_file_size: 0,
         },
-        false
+        false,
       );
       scanningRef.current = false;
       applyCached(cached);
@@ -458,7 +463,7 @@ const App: React.FC = () => {
           exclude_patterns: ["/private/var/run", "/proc", "/dev"],
           min_file_size: 0,
         },
-        true
+        true,
       );
       scanningRef.current = false;
       applyCached(cached);
@@ -480,7 +485,11 @@ const App: React.FC = () => {
   const handleGoHome = useCallback(async () => {
     if (scanningRef.current) {
       leaveAfterStopRef.current = true;
-      try { await stopScan(); } catch { /* ignore */ }
+      try {
+        await stopScan();
+      } catch {
+        /* ignore */
+      }
       return;
     }
     setAppState("dashboard");
@@ -547,9 +556,7 @@ const App: React.FC = () => {
       ) {
         return {
           ...node,
-          children: node.children
-            ?.map(filterByCategory)
-            .filter((n): n is FileNode => n !== null),
+          children: node.children?.map(filterByCategory).filter((n): n is FileNode => n !== null),
         };
       }
       return null;
@@ -615,16 +622,12 @@ const App: React.FC = () => {
 
         // 克隆整条路径并注入 children，触发 React 重渲染
         if (scanResult) {
-          const newRoot = injectChildren(
-            scanResult.root_node,
-            full.path,
-            resp.children
-          );
+          const newRoot = injectChildren(scanResult.root_node, full.path, resp.children);
           setScanResult({ ...scanResult, root_node: newRoot });
         }
       }
     },
-    [syncPriority, injectChildren, scanResult, persistCache]
+    [syncPriority, injectChildren, scanResult, persistCache],
   );
 
   const handleNavigateTo = useCallback(
@@ -640,7 +643,7 @@ const App: React.FC = () => {
         return next;
       });
     },
-    [syncPriority]
+    [syncPriority],
   );
 
   const handleNavigateUp = useCallback(() => {
@@ -704,13 +707,17 @@ const App: React.FC = () => {
     livePreview && livePreview.total_top_dirs > 0
       ? Math.min(
           100,
-          Math.round((livePreview.completed_top_dirs / livePreview.total_top_dirs) * 100)
+          Math.round((livePreview.completed_top_dirs / livePreview.total_top_dirs) * 100),
         )
       : 0;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} smartctl={smartctlStatus} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        smartctl={smartctlStatus}
+      />
       <Toolbar
         appState={appState}
         scanPath={scanPath}
@@ -762,10 +769,7 @@ const App: React.FC = () => {
             </div>
 
             <aside className="flex w-[340px] min-w-[280px] flex-col overflow-hidden border-l border-moss-200/80 bg-white/55 backdrop-blur-md">
-              <SearchPanel
-                rootPath={rootPathForSearch}
-                onResultSelect={handleSearchResultSelect}
-              />
+              <SearchPanel rootPath={rootPathForSearch} onResultSelect={handleSearchResultSelect} />
               {activeSummary.length > 0 && (
                 <CategoryLegend
                   summaries={activeSummary}
@@ -796,14 +800,22 @@ const App: React.FC = () => {
           </div>
           <div className="mt-1.5 flex justify-between gap-4 text-[11px] text-ink-muted">
             <span className="min-w-0 truncate">
-              {scanProgress?.phase ? t(scanProgress.phase as Parameters<typeof t>[0]) : t("app.scanningPhrase")}
+              {scanProgress?.phase
+                ? t(scanProgress.phase as Parameters<typeof t>[0])
+                : t("app.scanningPhrase")}
               {scanProgress?.current_path ? `: ${scanProgress.current_path}` : ""}
             </span>
             <span className="shrink-0 font-mono">
               {livePreview
                 ? `${t("app.progressTopLevel")} ${livePreview.completed_top_dirs}/${livePreview.total_top_dirs} · `
                 : ""}
-              {t("app.progressFound", { count: scanProgress?.files_found ?? livePreview?.files_found ?? 0 })} · {t("app.progressScannedDirs", { count: scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0 })}
+              {t("app.progressFound", {
+                count: scanProgress?.files_found ?? livePreview?.files_found ?? 0,
+              })}{" "}
+              ·{" "}
+              {t("app.progressScannedDirs", {
+                count: scanProgress?.dirs_scanned ?? livePreview?.dirs_scanned ?? 0,
+              })}
             </span>
           </div>
         </div>
@@ -864,131 +876,154 @@ const Toolbar: React.FC<ToolbarProps> = ({
   }, [menuOpen]);
 
   return (
-  <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
-    {/* App title + dropdown */}
-    <div className="relative" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => setMenuOpen((v) => !v)}
-        className="flex items-center gap-1 font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
-      >
-        {t("app.title")}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mt-0.5 text-moss-400">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
-      {menuOpen && (
-        <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md">
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
-            onClick={() => { setMenuOpen(false); onGoHome(); }}
+    <header className="relative z-20 flex h-14 shrink-0 items-center gap-3 border-b border-moss-200/70 bg-white/60 px-4 backdrop-blur-md">
+      {/* App title + dropdown */}
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="flex items-center gap-1 font-display text-lg font-semibold tracking-tight text-moss-700 transition hover:text-moss-500"
+        >
+          {t("app.title")}
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className="mt-0.5 text-moss-400"
           >
-            <span className="text-base">🏠</span>
-            {t("menu.home")}
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
-            onClick={() => { setMenuOpen(false); onOpenSettings(); }}
-          >
-            <span className="text-base">⚙</span>
-            {t("menu.settings")}
-          </button>
-        </div>
-      )}
-    </div>
-
-    {overview && (
-      <span className="hidden font-mono text-xs text-ink-muted sm:inline">
-        {t("app.usedOf", { used: formatSize(overview.used_space), total: formatSize(overview.total_space) })}
-      </span>
-    )}
-
-    {appState === "scanning" && (
-      <span className="animate-soft-pulse rounded-md bg-moss-500 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
-        {t("app.scanning")}
-      </span>
-    )}
-
-    {appState === "results" && fromCache && (
-      <span
-        className="rounded-md bg-sand-200 px-2 py-0.5 text-[10px] font-medium text-ink-soft"
-        title={cacheAt ? t("app.cachedAt", { date: formatDate(cacheAt, locale) }) : t("app.cached")}
-      >
-        {incomplete ? t("app.incompleteCheckpoint") : t("app.cached")}
-        {cacheAt ? ` · ${formatDate(cacheAt, locale)}` : ""}
-      </span>
-    )}
-
-    <div className="flex-1" />
-
-    <div className="flex items-center gap-2">
-      {/* Language toggle */}
-      <button
-        type="button"
-        onClick={() => setLocale(locale === "zh-CN" ? "en" : "zh-CN")}
-        className="rounded-lg border border-moss-200 bg-white px-2 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-moss-50"
-        title={locale === "zh-CN" ? "Switch to English" : "切换到中文"}
-      >
-        {locale === "zh-CN" ? "EN" : "中文"}
-      </button>
-
-      <div className="relative">
-        <input
-          className={`w-44 rounded-lg border bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted sm:w-64 md:w-80 ${
-            scanError
-              ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200"
-              : "border-moss-200 focus:border-moss-400 focus:ring-2 focus:ring-moss-200"
-          }`}
-          type="text"
-          value={scanPath}
-          onChange={(e) => setScanPath(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && appState !== "scanning") onStartScan();
-          }}
-          placeholder={t("app.scanPathPlaceholder")}
-          aria-invalid={!!scanError}
-          title={scanError ?? undefined}
-        />
-        {scanError && (
-          <p
-            className="absolute right-0 top-full z-20 mt-1 max-w-[min(20rem,70vw)] truncate rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] text-rose-600 shadow-sm"
-            title={scanError}
-            role="alert"
-          >
-            {scanError}
-          </p>
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        {menuOpen && (
+          <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] overflow-hidden rounded-xl border border-moss-200/90 bg-white/95 py-1 shadow-lg backdrop-blur-md">
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+              onClick={() => {
+                setMenuOpen(false);
+                onGoHome();
+              }}
+            >
+              <span className="text-base">🏠</span>
+              {t("menu.home")}
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-ink transition hover:bg-moss-50"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenSettings();
+              }}
+            >
+              <span className="text-base">⚙</span>
+              {t("menu.settings")}
+            </button>
+          </div>
         )}
       </div>
-      {incomplete && appState !== "scanning" && (
+
+      {overview && (
+        <span className="hidden font-mono text-xs text-ink-muted sm:inline">
+          {t("app.usedOf", {
+            used: formatSize(overview.used_space),
+            total: formatSize(overview.total_space),
+          })}
+        </span>
+      )}
+
+      {appState === "scanning" && (
+        <span className="animate-soft-pulse rounded-md bg-moss-500 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white">
+          {t("app.scanning")}
+        </span>
+      )}
+
+      {appState === "results" && fromCache && (
+        <span
+          className="rounded-md bg-sand-200 px-2 py-0.5 text-[10px] font-medium text-ink-soft"
+          title={
+            cacheAt ? t("app.cachedAt", { date: formatDate(cacheAt, locale) }) : t("app.cached")
+          }
+        >
+          {incomplete ? t("app.incompleteCheckpoint") : t("app.cached")}
+          {cacheAt ? ` · ${formatDate(cacheAt, locale)}` : ""}
+        </span>
+      )}
+
+      <div className="flex-1" />
+
+      <div className="flex items-center gap-2">
+        {/* Language toggle */}
         <button
           type="button"
-          className="rounded-lg border border-moss-300 bg-white px-2.5 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
-          onClick={onResumeScan}
+          onClick={() => setLocale(locale === "zh-CN" ? "en" : "zh-CN")}
+          className="rounded-lg border border-moss-200 bg-white px-2 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-moss-50"
+          title={locale === "zh-CN" ? "Switch to English" : "切换到中文"}
         >
-          {t("app.continueScan")}
+          {locale === "zh-CN" ? "EN" : "中文"}
         </button>
-      )}
-      {(fromCache || incomplete) && appState === "results" && (
+
+        <div className="relative">
+          <input
+            className={`w-44 rounded-lg border bg-sand-50 px-3 py-1.5 font-mono text-xs text-ink outline-none transition placeholder:text-ink-muted sm:w-64 md:w-80 ${
+              scanError
+                ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200"
+                : "border-moss-200 focus:border-moss-400 focus:ring-2 focus:ring-moss-200"
+            }`}
+            type="text"
+            value={scanPath}
+            onChange={(e) => setScanPath(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && appState !== "scanning") onStartScan();
+            }}
+            placeholder={t("app.scanPathPlaceholder")}
+            aria-invalid={!!scanError}
+            title={scanError ?? undefined}
+          />
+          {scanError && (
+            <p
+              className="absolute right-0 top-full z-20 mt-1 max-w-[min(20rem,70vw)] truncate rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] text-rose-600 shadow-sm"
+              title={scanError}
+              role="alert"
+            >
+              {scanError}
+            </p>
+          )}
+        </div>
+        {incomplete && appState !== "scanning" && (
+          <button
+            type="button"
+            className="rounded-lg border border-moss-300 bg-white px-2.5 py-1.5 text-xs font-medium text-moss-800 transition hover:bg-moss-50"
+            onClick={onResumeScan}
+          >
+            {t("app.continueScan")}
+          </button>
+        )}
+        {(fromCache || incomplete) && appState === "results" && (
+          <button
+            type="button"
+            className="rounded-lg border border-moss-200 bg-white px-2.5 py-1.5 text-xs text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
+            onClick={onClearCache}
+          >
+            {t("app.clearCache")}
+          </button>
+        )}
         <button
           type="button"
-          className="rounded-lg border border-moss-200 bg-white px-2.5 py-1.5 text-xs text-ink-soft transition hover:border-moss-300 hover:bg-moss-50"
-          onClick={onClearCache}
+          className="rounded-lg bg-moss-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onStartScan}
+          disabled={appState === "scanning"}
         >
-          {t("app.clearCache")}
+          {appState === "scanning"
+            ? t("app.scanningBtn")
+            : appState === "dashboard"
+              ? t("app.scan")
+              : t("app.rescan")}
         </button>
-      )}
-      <button
-        type="button"
-        className="rounded-lg bg-moss-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-moss-500 disabled:cursor-not-allowed disabled:opacity-50"
-        onClick={onStartScan}
-        disabled={appState === "scanning"}
-      >
-        {appState === "scanning" ? t("app.scanningBtn") : appState === "dashboard" ? t("app.scan") : t("app.rescan")}
-      </button>
-    </div>
-  </header>
+      </div>
+    </header>
   );
 };
 
