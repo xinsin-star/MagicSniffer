@@ -1,6 +1,7 @@
 //! Dashboard — 清新自然首页概览
 
 import React, { useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type {
   CategorySummary,
   DiskMountInfo,
@@ -75,20 +76,11 @@ function LazyDiskCard<T>({
             <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-moss-300 border-t-moss-600" />
           )}
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-moss-200 bg-white text-moss-700 transition group-hover:border-moss-300 group-hover:bg-moss-50">
-            <svg
+            <ChevronDown
               className={`h-3 w-3 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-              viewBox="0 0 12 12"
-              fill="none"
+              strokeWidth={1.5}
               aria-hidden="true"
-            >
-              <path
-                d="M2 4.5l4 4 4-4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            />
           </span>
         </span>
       </button>

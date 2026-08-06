@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { X } from "lucide-react";
 import { useTranslation } from "../i18n/useTranslation";
 import type { SmartctlStatus } from "../types";
 
@@ -43,17 +44,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ open, onClose, smartctl }
             onClick={onClose}
             className="rounded-lg p-1 text-ink-muted transition hover:bg-moss-50 hover:text-ink"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
